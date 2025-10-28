@@ -1,0 +1,4 @@
+[submodule "prep/AutoMask"]
+	path = prep/AutoMask
+	url = https://github.com/CRISP-Real2Sim/AutoMask.git
+	branch = main
