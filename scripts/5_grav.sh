@@ -5,11 +5,11 @@ set -euo pipefail
 #    Option A: using the "conda shell.bash hook":
 eval "$(conda shell.bash hook)"
 
-conda activate hmr
+conda activate crisp
 
 #!/bin/bash
 
-cd /data3/zihanwa3/_Robotics/_vision/GVHMR
+cd ../prep/HMR
 #!/bin/bash
 
 VIDEO_DIR="${1}_videos"

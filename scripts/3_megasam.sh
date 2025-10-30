@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -eo pipefail 
 eval "$(conda shell.bash hook)"
-conda activate tapip3d
+conda activate crisp
 
-cd /data3/zihanwa3/_Robotics/_vision/TAPIP3D
+cd ../prep/MogeSAM
 
 ROOT="$1"
 DATA_PATH="${ROOT%/}_videos"  # Append "_video" suffix

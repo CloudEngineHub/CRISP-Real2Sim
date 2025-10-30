@@ -3,10 +3,8 @@ set -euo pipefail
 
 # 1) Make sure conda’s shell functions are available:
 eval "$(conda shell.bash hook)"
-conda activate visprog
-
-# 2) Change to the directory of interest:
-cd /data3/zihanwa3/Capstone-DSR/Appendix/segment-anything-2
+conda activate crisp
+cd ../prep/AutoMask
 #!/bin/bash
 
 # Usage:
@@ -45,7 +43,8 @@ for i in "${!folders[@]}"; do
       python custom_mask.py \
         --seq "$seq" \
         --text_prompt "person" \
-        --video_dir "$DATA_PATH" &
+        --video_dir "$DATA_PATH" \
+        --save_dir "$SAVE_PATH" &
 
     if [[ "$DATA_PATH" == *door* ]]; then
         echo "'door' found in DATA_PATH: $DATA_PATH. Running twice..."
@@ -69,4 +68,5 @@ done
 
 # Wait for all background processes to finish before exiting
 wait
+cd ../..
 echo "All parallel jobs finished."

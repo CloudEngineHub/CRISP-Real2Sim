@@ -2,3 +2,9 @@
 	path = prep/AutoMask
 	url = https://github.com/CRISP-Real2Sim/AutoMask.git
 	branch = main
+[submodule "prep/MogeSAM"]
+	path = prep/MogeSAM
+	url = https://github.com/CRISP-Real2Sim/megasam-advanced.git
+[submodule "prep/HMR"]
+	path = prep/HMR
+	url = https://github.com/CRISP-Real2Sim/HMR.git
