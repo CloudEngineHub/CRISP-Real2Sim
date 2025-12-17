@@ -1,4 +1,10 @@
-# CRISP-Real2Sim
+<div align="center">
+	<h1>CRISP: Contact-guided Real2Sim from Monocular Video with Planar Scene Primitives</h1>
+	<a href="https://arxiv.org/abs/2512.14696"><img src="https://img.shields.io/badge/arXiv-2512.14696-b31b1b" alt="arXiv"></a>
+	<a href="https://crisp-real2sim.github.io/CRISP-Real2Sim/"><img src="https://img.shields.io/badge/Project_Page-green" alt="Project Page"></a>
+</div>
+	
+![teaser](https://raw.githubusercontent.com/Z1hanW/CRISP-Real2Sim/tree/main/assets/crisp.png)
 
 CRISP-Real2Sim contains the complete pipeline we use to turn in-the-wild video into human-scene reconstructions and downstream controllers.
 ---
