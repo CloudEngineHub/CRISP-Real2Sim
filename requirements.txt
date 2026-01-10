@@ -34,9 +34,8 @@ imageio[ffmpeg]
 pyliblzfse
 scikit-image
 scikit-learn
-vdbfusion
 segment_anything
 nerfstudio
 easydict
 accelerate
-chumpy 
+

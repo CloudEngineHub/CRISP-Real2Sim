@@ -13,12 +13,14 @@ mkdir -p HMR/inputs/checkpoints/body_models/smpl
 mkdir -p HMR/inputs/checkpoints/body_models/smplx
 
 
-wget --post-data "username=$username&password=$password" 'https://download.is.tue.mpg.de/download.php?domain=smpl&sfile=SMPL_python_v.1.0.0.zip' -O './data/smpl/smpl.zip' --no-check-certificate --continue
+wget --post-data "username=$username&password=$password" 'https://download.is.tue.mpg.de/download.php?domain=smpl&sfile=SMPL_python_v.1.1.0.zip' -O './data/smpl/smpl.zip' --no-check-certificate --continue
 unzip data/smpl/smpl.zip -d data/smpl/smpl
-mv data/smpl/smpl/smpl/models/basicModel_f_lbs_10_207_0_v1.0.0.pkl HMR/inputs/checkpoints/body_models/smpl/SMPL_FEMALE.pkl
-mv data/smpl/smpl/smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl HMR/inputs/checkpoints/body_models/smpl/SMPL_MALE.pkl
-rm -rf data/smpl/smpl
-rm -rf data/smpl/smpl.zip
+mv data/smpl/SMPL_python_v.1.1.0/smpl/models/basicModel_f_lbs_10_207_0_v1.1.0.pkl HMR/inputs/checkpoints/body_models/smpl/SMPL_FEMALE.pkl
+mv data/smpl/SMPL_python_v.1.1.0/smpl/models/basicmodel_m_lbs_10_207_0_v1.1.0.pkl HMR/inputs/checkpoints/body_models/smpl/SMPL_MALE.pkl
+mv data/smpl/SMPL_python_v.1.1.0/smpl/models/basicmodel_neutral_lbs_10_207_0_v1.1.0.pkl HMR/inputs/checkpoints/body_models/smpl/SMPL_NEUTRAL.pkl
+
+
 
 wget --post-data "username=$username&password=$password" "https://download.is.tue.mpg.de/download.php?domain=smplx&sfile=models_smplx_v1_1.zip" -O './data/smplx/smplx.zip' --no-check-certificate --continue
 unzip data/smplx/smplx.zip -d data/smplx
+# CRISP-Real2Sim/prep/MogeSAM

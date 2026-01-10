@@ -7,7 +7,6 @@ cd ../prep/MogeSAM
 
 ROOT="$1"
 DATA_PATH="${ROOT%/}_videos"  # Append "_video" suffix
-[[ -d "$DATA_PATH" ]] || { echo "❌  '$DATA_PATH' not found"; exit 1; }
 
 DIRS=("$DATA_PATH"/*)
 NUM_DIRS=${#DIRS[@]}
@@ -39,4 +38,5 @@ for gpu_id in "${GPU_IDS[@]}"; do
 done
 
 wait
+# ModuleNotFoundError: No module named 'timm.layers'
 echo "🏁  All jobs finished."

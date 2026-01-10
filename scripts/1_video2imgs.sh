@@ -5,11 +5,7 @@ cd ../prep/AutoMask/preprocess #/data3/zihanwa3/_Robotics/_vision/tram
 VIDEO_DIR="${1}_videos"
 IMG_DIR="${1}_img"
 RESIZE=$2
-
-# Check if any .mp4 file exists in VIDEO_DIR
-shopt -s nullglob
 mp4_files=("$VIDEO_DIR"/*.mp4)
-shopt -u nullglob
 
 if [ ${#mp4_files[@]} -gt 0 ]; then
   echo "Found video files. Running video2frames.py..."
