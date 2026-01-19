@@ -21,7 +21,7 @@ from sklearn.cluster import MiniBatchKMeans        # fast & GPU‑friendly via t
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm  # For colormap
 import smplx
-
+from smpl import SMPL, BodyModelSMPLH, BodyModelSMPLX
 import torch
 import os
 import cv2
@@ -1026,13 +1026,15 @@ def main(
         process_gv_smpl,
         load_contact_ids_from_file,
         load_contact_ids_with_mode, 
-        filter_vertices_by_contact
+        filter_vertices_by_contact,
+        vis_hmr
     )
     
 
     device='cuda'
 
     interact_contact_path = str(CONTACTS_ROOT / tgt_name)
+    smpl = SMPL().to(device)
 
 
     
@@ -1043,7 +1045,7 @@ def main(
             world_cam_R=world_cam_R,
             world_cam_T=world_cam_T,
             max_frames=max_frames,
-            smpl_model=None,
+            smpl_model=smpl,
             use_world=use_world,
             device='cuda'
         )
@@ -1056,6 +1058,8 @@ def main(
         body_pose = smpl_results['body_pose']
         pred_shapes = smpl_results['pred_shapes']
         faces = smpl_results['faces']
+        smplx_joints_world = smpl_results.get('smplx_joints_world')
+        smplx_height = smpl_results.get('smplx_height')
 
     
     save_dir = SCENE_OUTPUT_DIR / tgt_name / hmr_type
@@ -1247,7 +1251,19 @@ def main(
     if 'pkr' or 'IMG_' in tgt_name:
       every = 1
 
+    # vis_hmr(results, org_vis, device, every=every)
     np.save(hmr_dir / 'hps_track.npy', results)
+    
+    joints_np = (
+        smplx_joints_world.detach().cpu().numpy()
+        if torch.is_tensor(smplx_joints_world)
+        else np.asarray(smplx_joints_world)
+    )
+    np.savez(
+        hmr_dir / f"hps_track_smplx.npz",
+        global_joint_positions=joints_np.astype(np.float32, copy=False),
+        height=np.float32(smplx_height),
+    )
     human_transl_np = transl_world.detach().cpu().numpy()
 
 

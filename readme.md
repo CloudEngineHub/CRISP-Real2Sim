@@ -99,7 +99,7 @@ sh all_gv.sh /path/to/data/demo        # not /path/to/data/demo_videos
 ## 4. Visualize Human–Scene Reconstructions
 Compile viser
 ```bash
-cd __release/vis_scripts/viser_m
+cd vis_scripts/viser_m
 pip install -e .
 ```
 

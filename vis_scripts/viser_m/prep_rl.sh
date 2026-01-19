@@ -1,0 +1,1 @@
+python holosoma_bridge.py --seq_name 'handstand'

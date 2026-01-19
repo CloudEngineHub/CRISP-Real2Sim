@@ -47,3 +47,9 @@ pip install -e .
 cd ..
 pip install -e .
 cd ..
+
+## GeoCalib
+git clone https://github.com/hongsukchoi/GeoCalib.git 
+cd GeoCalib
+pip install -e .
+cd ..

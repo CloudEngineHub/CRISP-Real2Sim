@@ -599,7 +599,9 @@ def process_gv_smpl(
     num_frames = min(max_frames, len(world_cam_R))
     
     # Process SMPL-X output
-    smplx_out = modelggg(**to_cuda(pred["smpl_params_incam"]))
+    smplx_out = modelggg(**to_cuda(pred["smpl_params_incam"])) # torch.Size([224, 127, 3])
+    # print(smplx_out.joints.shape, smplx_out.vertices.shape, 'thaishfaisfhaisfhas')
+    
     pred_c_verts = convert_smplx_to_smpl(smplx_out.vertices, smplx2smpl)
     
     pred_shapes = smplx_out.betas[:, :10]
@@ -648,10 +650,19 @@ def process_gv_smpl(
         
         transl_world = transl_world.squeeze(1)
         global_orient_world = axis_angle_to_matrix(global_orient_world).unsqueeze(1)
+
+        smplx_out_world = smplx_out_temp
     else:
         transl_world = transl_cam.squeeze(1)
         pred_vert = pred_c_verts
         global_orient_world = global_orient_cam
+
+        smplx_out_world = smplx_out
+
+    smplx_joints_world = smplx_out_world.joints[:22].detach().cpu()
+    smplx_height = float(
+        (smplx_joints_world[..., 2].max() - smplx_joints_world[..., 2].min()).item()
+    )
 
 
     return {
@@ -662,7 +673,9 @@ def process_gv_smpl(
         'pred_j3dg': None,  # GV doesn't provide joints directly
         'body_pose': body_pose,
         'pred_shapes': pred_shapes,
-        'faces': faces
+        'faces': faces,
+        'smplx_joints_world': smplx_joints_world,
+        'smplx_height': smplx_height
     }
 
 
