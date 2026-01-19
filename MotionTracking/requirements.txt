@@ -1,0 +1,12 @@
+torch==2.0.1
+pytorch-lightning==2.0.0
+numpy>=1.21.1
+termcolor>=1.1.0
+scikit-image
+opencv-python
+rtree==1.2.0
+trimesh
+protobuf==3.20.3
+git+https://github.com/ZhengyiLuo/SMPLSim.git@master
+vector_quantize_pytorch
+librosa

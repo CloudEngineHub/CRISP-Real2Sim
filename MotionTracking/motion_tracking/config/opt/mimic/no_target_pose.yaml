@@ -1,0 +1,46 @@
+# @package _global_
+
+name: mimic_llc
+
+# Actor config
+actor_units: [1024, 1024, 1024]
+
+# Critic config
+critic_units: [1024, 1024, 1024]
+#critic_use_layer_norm: True
+
+# Environment config
+max_episode_length: 300
+reset_track_grace_period: 5  # 2 # 20
+
+provide_future_states: True
+num_future_steps: 5
+target_pose_type: max-coords-future-rel
+
+# Track should be reset when pos_rel_to_data is False!
+# Best to avoid reset on bad gt and gr when using pos_rel_to_data!
+pos_rel_to_data: False
+reset_on_reset_track: True
+
+relative_kb_pos: False
+add_rr_to_lr: True
+rt_rew_w: 0.15
+gr_rew_w: 0.15
+gt_rew_w: 0.1
+
+# mimic_target_pose_model:
+#   _target_: motion_tracking.agents.models.common.Flatten
+#   config:
+#     normalize_obs: ${normalize_obs}
+#     obs_clamp_value: ${obs_clamp_value}
+#   num_in: ${eval:${num_future_steps}*${num_obs_per_target_pose}}
+#   num_out: ${eval:${num_future_steps}*${num_obs_per_target_pose}}
+
+
+# critic_mimic_target_pose_model:
+#   _target_: motion_tracking.agents.models.common.Flatten
+#   config:
+#     normalize_obs: ${normalize_obs}
+#     obs_clamp_value: ${obs_clamp_value}
+#   num_in: ${eval:${num_future_steps}*${num_obs_per_target_pose}}
+#   num_out: ${eval:${num_future_steps}*${num_obs_per_target_pose}}

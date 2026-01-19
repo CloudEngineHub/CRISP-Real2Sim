@@ -1,0 +1,45 @@
+# @package _global_
+
+pose_threshold_val: 0.3  # 0.32
+root_threshold_val: 0.2  # 0.12
+early_reward_term:
+#  - early_reward_term_key: kb_rew
+#    early_reward_start_term_thresh: ${pose_start_threshold_val}
+#    early_reward_end_term_thresh: ${pose_end_threshold_val}
+#    use_scaled: False
+#    less_than: True
+#  - early_reward_term_key: lr_rew
+#    early_reward_start_term_thresh: ${pose_start_threshold_val}
+#    early_reward_end_term_thresh: ${pose_end_threshold_val}
+#    use_scaled: False
+#    less_than: True
+  - early_reward_term_key: rh_rew
+    early_reward_term_thresh: ${root_threshold_val}
+    use_scaled: False
+    less_than: True
+#  - early_reward_term_key: rv_rew
+#    early_reward_start_term_thresh: ${root_start_threshold_val}
+#    early_reward_end_term_thresh: ${root_end_threshold_val}
+#    use_scaled: False
+#    less_than: True
+#  - early_reward_term_key: rav_rew
+#    early_reward_start_term_thresh: ${root_start_threshold_val}
+#    early_reward_end_term_thresh: ${root_end_threshold_val}
+#    use_scaled: False
+#    less_than: True
+#  - early_reward_term_key: rt_rew
+#    early_reward_start_term_thresh: ${root_start_threshold_val}
+#    early_reward_end_term_thresh: ${root_end_threshold_val}
+#    use_scaled: False
+#    less_than: True
+  - early_reward_term_key: gt_rew
+    early_reward_term_thresh: ${root_threshold_val}
+    use_scaled: False
+    less_than: True
+  - early_reward_term_key: gr_rew
+    early_reward_term_thresh: ${root_threshold_val}
+    use_scaled: False
+    less_than: True
+
+enable_height_termination: False
+dynamic_weight_criteria: early_reward_term

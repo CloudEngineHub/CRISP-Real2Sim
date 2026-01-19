@@ -1,0 +1,89 @@
+# @package _global_
+defaults:
+  - disc_humanoid
+
+env_params:
+  init_start_prob: ${init_start_prob}
+  scene_file: ${scene_file}
+
+  use_phase_obs: ${use_phase_obs}
+  relative_kb_pos: ${relative_kb_pos}
+  add_rr_to_lr: ${add_rr_to_lr}
+  rt_ignore_height: ${rt_ignore_height}
+  pos_rel_to_data: ${pos_rel_to_data}
+
+  early_reward_term: ${early_reward_term}
+  positive_constant: ${positive_constant}
+  tan_norm_reward: ${tan_norm_reward}
+  sum_before_exp: ${sum_before_exp}
+
+  gt_rew_c: ${gt_rew_c}
+  rt_rew_c: ${rt_rew_c}
+  kb_rew_c: ${kb_rew_c}
+  gr_rew_c: ${gr_rew_c}
+  lr_rew_c: ${lr_rew_c}
+  rv_rew_c: ${rv_rew_c}
+  rav_rew_c: ${rav_rew_c}
+  gv_rew_c: ${gv_rew_c}
+  gav_rew_c: ${gav_rew_c}
+  dv_rew_c: ${dv_rew_c}
+  rh_rew_c: ${rh_rew_c}
+  kbf_rew_c: ${kbf_rew_c}
+
+  gt_rew_w: ${gt_rew_w}
+  rt_rew_w: ${rt_rew_w}
+  kb_rew_w: ${kb_rew_w}
+  gr_rew_w: ${gr_rew_w}
+  lr_rew_w: ${lr_rew_w}
+  rv_rew_w: ${rv_rew_w}
+  rav_rew_w: ${rav_rew_w}
+  gv_rew_w: ${gv_rew_w}
+  gav_rew_w: ${gav_rew_w}
+  dv_rew_w: ${dv_rew_w}
+  rh_rew_w: ${rh_rew_w}
+  kbf_rew_w: ${kbf_rew_w}
+  pow_rew_w: ${pow_rew_w}
+
+  dynamic_sample: ${dynamic_sample}
+  dynamic_weight_criteria: ${dynamic_weight_criteria}
+  bucket_width: ${bucket_width}
+  dynamic_weight_pow: ${dynamic_weight_pow}
+  dynamic_weight_max: ${dynamic_weight_max}
+  update_dynamic_weight_epochs: ${update_dynamic_weight_epochs}
+
+  reset_track_steps_min: ${reset_track_steps_min}
+  reset_track_steps_max: ${reset_track_steps_max}
+  reset_track_grace_period: ${reset_track_grace_period}
+
+  reset_track_on_reset: ${reset_track_on_reset}
+  reset_on_reset_track: ${reset_on_reset_track}
+
+  provide_future_states: ${provide_future_states}
+  num_future_steps: ${num_future_steps}
+  target_pose_type: ${target_pose_type}
+  target_next_root: ${target_next_root}
+  num_obs_per_target_pose: ${num_obs_per_target_pose}
+  num_obs_mimic_scene: ${num_obs_mimic_scene}
+  num_obs_mimic_goal: ${num_obs_mimic_goal}
+  num_obs_num_point: ${num_obs_num_point}
+
+  residual_control: ${residual_control}
+
+  fixed_motion_per_env: ${fixed_motion_per_env}
+  fixed_motion_id: ${fixed_motion_id}
+  not_mimic: False
+  noise_level: ${noise_level}
+  seperate_point_goal: ${seperate_point_goal}
+  dual_env: ${dual_env}
+  scene_in_disc: ${scene_in_disc}
+  force_point_cloud_obs: ${force_point_cloud_obs}
+  point_sample_radius: ${point_sample_radius}
+  point_sample_random: ${point_sample_random}
+
+
+# Defaults
+fixed_motion_per_env: False
+pos_rel_to_data: False
+force_point_cloud_obs: False
+point_sample_radius: 0.0
+point_sample_random: False

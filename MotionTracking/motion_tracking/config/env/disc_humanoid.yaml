@@ -1,0 +1,23 @@
+# @package _global_
+
+defaults:
+ - humanoid
+
+env_params:
+  hybrid_init_prob: ${hybrid_init_prob}
+  state_init: ${state_init}
+  num_disc_steps: ${num_disc_steps}
+  motion_lib: ${motion_lib}
+  sync_motion: ${sync_motion}
+  output_motion: ${output_motion}
+  disable_jd: ${disable_jd}
+
+  fixed_motion_offset: ${fixed_motion_offset}
+  scene_in_disc: ${scene_in_disc}
+  not_mimic: True
+  target_next_root: False
+
+# Defaults
+fixed_motion_offset: 0
+scene_in_disc: False
+

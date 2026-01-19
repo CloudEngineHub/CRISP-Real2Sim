@@ -1,0 +1,16 @@
+mujoco-py<2.2,>=2.1
+lxml
+git+https://github.com/ZhengyiLuo/smplx.git@master
+gym
+cython==3.0.0a10
+patchelf
+joblib
+numpy-stl
+vtk
+chumpy
+joblib
+torchgeometry
+pyvista
+pyrender
+opencv-python-headless<4.3
+seaborn

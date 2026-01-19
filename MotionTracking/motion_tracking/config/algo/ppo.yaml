@@ -1,0 +1,81 @@
+# @package _global_
+
+algo:
+  _target_: motion_tracking.agents.ppo.PPO
+  _recursive_: False
+  config:
+    seed: ${seed}
+    backbone: ${backbone}
+    num_envs: ${num_envs}
+    ngpu: ${ngpu}
+    enable_task_obs: ${enable_task_obs}
+    num_task_obs: ${num_task_obs}
+    num_steps: ${num_steps}
+    tau: ${tau}
+    gamma: ${gamma}
+    e_clip: ${e_clip}
+    clip_critic_loss: ${clip_critic_loss}
+    gradient_clip_val: ${manual_gradient_clip_val}
+    fail_on_bad_grads: ${fail_on_bad_grads}
+    check_grad_mag: ${check_grad_mag}
+    bounds_loss_coef: ${bounds_loss_coef}
+    normalize_values: ${normalize_values}
+    val_clamp_value: ${val_clamp_value}
+    normalize_advantage: ${normalize_advantage}
+    batch_size: ${batch_size}
+    task_reward_w: ${task_reward_w}
+    num_mini_epochs: ${num_mini_epochs}
+    env: ${env}
+    actor: ${actor}
+    critic: ${critic}
+    actor_optimizer: ${actor_optimizer}
+    critic_optimizer: ${critic_optimizer}
+    actor_lr_scheduler: ${actor_lr_scheduler}
+    critic_lr_scheduler: ${critic_lr_scheduler}
+    schedules: null
+    max_eval_steps: ${max_eval_steps}
+    num_games: ${num_games}
+    eval_metrics_every: ${eval_metrics_every}
+    manual_save_every: ${manual_save_every}
+    save_freq: ${save_freq}
+    checkpoint_save_dir: ${checkpoint_save_dir}
+    wandb_log_models: ${wandb_log_models}
+    use_rand_action_masks: ${use_rand_action_masks}
+
+    init_logstd: ${init_logstd}
+
+    checkpoint: ${checkpoint}
+    export_trajectory: ${export_trajectory}
+    export_video: ${export_video}
+    export_motion: ${export_motion}
+    shared_actor_critic_base: ${shared_actor_critic_base}
+
+    extra_inputs: ${algo_extra_inputs}
+    save_data_for_cvae: ${save_data_for_cvae}
+    use_llc: ${use_llc}
+    dual_env: ${dual_env}
+
+actor_optimizer:
+  _target_: torch.optim.Adam
+  lr: ${actor_lr}
+  betas: ${actor_betas}
+
+critic_optimizer:
+  _target_: torch.optim.Adam
+  lr: ${critic_lr}
+  betas: ${critic_betas}
+
+actor_lr_scheduler: null
+critic_lr_scheduler: null
+
+# Defaults
+export_trajectory: False
+export_video: False
+export_motion: False
+wandb_log_models: False
+checkpoint: null
+algo_extra_inputs: null
+dual_env: False
+save_freq: 100000
+save_data_for_cvae: False
+use_llc: False

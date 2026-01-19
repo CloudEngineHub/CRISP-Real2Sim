@@ -1,0 +1,13 @@
+# @package _global_
+
+early_reward_term:
+  - early_reward_term_key: max_joint_err
+    early_reward_term_thresh: 0.5
+    early_reward_term_thresh_on_flat: 0.5
+    from_other: True
+    less_than: False
+
+enable_height_termination: False
+dynamic_weight_criteria: early_reward_term
+dynamic_weight_max: null
+bucket_width: 2.0

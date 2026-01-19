@@ -1,0 +1,12 @@
+defaults:
+  - algo: ppo
+  - env: humanoid
+  - backbone: isaacgym
+  - exp: mimic
+  - _self_
+
+seed: 0
+ngpu: 1
+
+checkpoint: null
+config_path: null

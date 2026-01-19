@@ -1,0 +1,15 @@
+# @package _global_
+
+defaults:
+  - isaacgym
+
+key_bodies: ["R_Ankle", "L_Ankle", "L_Hand", "R_Hand"]
+contact_bodies: ["R_Ankle", "L_Ankle", "R_Toe", "L_Toe"]
+asset_file_name: "mjcf/smpl_humanoid_pulse.xml"
+
+num_obs_per_target_pose: 432
+num_obs_mimic_scene: 3
+num_obs_per_target_pose_padded: 576
+ref_respawn_offset: 0.25
+num_bodies: 24
+robot_type: smpl

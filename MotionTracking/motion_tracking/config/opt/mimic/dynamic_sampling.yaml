@@ -1,0 +1,4 @@
+# @package _global_
+
+dynamic_sample: True
+dynamic_weight_criteria: early_reward_term

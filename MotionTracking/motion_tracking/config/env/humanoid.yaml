@@ -1,0 +1,130 @@
+# @package _global_
+
+env:
+  _target_: ${env_target}
+  _recursive_: False
+  config: ${env_config}
+
+env_params:
+  env_target: ${env_target}
+  backbone: ${backbone}
+  num_envs: ${num_envs}
+  enable_task_obs: ${enable_task_obs}
+  num_task_obs: ${num_task_obs}
+  max_episode_length: ${max_episode_length}
+  use_max_coords_obs: ${use_max_coords_obs}
+  headless: ${headless}
+  visualize_markers: ${visualize_markers}
+
+  max_num_objects: ${max_num_objects}
+  max_objects_per_category: ${max_objects_per_category}
+  object_offsets: ${object_offsets}
+  object_asset_root: ${object_asset_root}
+  object_action_type: ${object_action_type}
+  object_category: ${object_category}
+  object_name: ${object_name}
+  object_replications: ${object_replications}
+
+  object_action_types:
+    - Sit
+    - LieDown
+  object_action_type_to_object_category:
+    Sit:
+      - Armchairs
+      - StraightChairs
+      - HighStools
+      - LowStools
+      - Sofas
+      - Tables
+    LieDown:
+      - LargeSofas
+
+  camera: ${camera}
+
+  env_spacing: ${env_spacing}
+  enable_debug_vis: False
+  pd_control: True
+  pd_scale: ${pd_scale}
+  default_humanoid_mass: ${default_humanoid_mass}
+
+  power_scale: 1.0
+  ref_respawn_offset: ${ref_respawn_offset}
+
+  clamp_actions: 1.0
+
+  sim_fps: ${sim_fps}
+  control_freq_inv: ${control_freq_inv}
+
+  local_root_obs: ${local_root_obs}
+  root_height_obs: ${root_height_obs}
+  contact_bodies: ${contact_bodies}
+  key_bodies: ${key_bodies}
+  termination_height: 0.15
+  head_termination_height: 0.3
+  shield_termination_height: 0.32
+  enable_height_termination: ${enable_height_termination}
+
+  init_logstd: ${init_logstd}
+
+  export_video: ${export_video}
+  export_motion: ${export_motion}
+  record_viewer: ${record_viewer}
+  viewer_record_dir: ${viewer_record_dir}
+
+  asset:
+    asset_root: ${asset_root}
+    asset_file_name: ${asset_file_name}
+    robot_type: ${robot_type}
+
+  fix_pd_offsets: ${fix_pd_offsets}
+  specific_pd_fixes: ${specific_pd_fixes}
+  obs_relative_to_surface: ${obs_relative_to_surface}
+
+  plane:
+    static_friction: 1.0
+    dynamic_friction: 1.0
+    restitution: 0.0
+
+  sim:
+    substeps: ${sim_substeps}
+    physx:
+      num_threads: 4
+      solver_type: 1 # 0: pgs, 1: tgs
+      num_position_iterations: 4
+      num_velocity_iterations: 0
+      contact_offset: 0.02
+      rest_offset: 0.0
+      bounce_threshold_velocity: 0.2
+      max_depenetration_velocity: 1.0
+      default_buffer_size_multiplier: 10.0
+
+    flex:
+      num_inner_iterations: 10
+      warm_start: 0.25
+
+  task: null
+  task_name: ${task_name}
+
+  terrain: ${terrain}
+  dummy_terrain: ${dummy_terrain}
+  save_state_path: ${save_state_path}
+
+# defaults
+camera: null
+pd_scale: False  # This is needed for the SMPL model due to weight variations
+default_humanoid_mass: null
+max_num_objects: 0
+max_objects_per_category: 0
+object_offsets: null
+object_asset_root: null
+object_action_type: null
+object_category: null
+object_name: null
+object_replications: 1
+record_viewer: False
+viewer_record_dir: "output/recordings/viewer"
+specific_pd_fixes: False
+fix_pd_offsets: True
+obs_relative_to_surface: False  # By default relative to the GROUND. Surface can also refer to an object (chair).
+dummy_terrain: False
+save_state_path: null

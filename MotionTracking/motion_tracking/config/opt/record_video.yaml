@@ -1,0 +1,56 @@
+# @package _global_
+
+# export trajectories
+
+export_video_cb:
+  _target_: motion_tracking.agents.callbacks.export_video.ExportVideo
+  config:
+    record_dir: ${record_dir}
+    index_offset: ${fixed_motion_offset}
+    record_fps: 30
+    # For webm recordings
+    fourcc: vp80
+    suffix: webm
+    # For mp4 recordings
+    # fourcc: MP4V
+    # suffix: mp4
+
+    record_viewer: ${record_viewer}
+    only_record_viewer: ${only_record_viewer}
+    viewer_record_dir: "output/recordings/viewer"
+
+    store_raw: ${store_raw}
+
+camera:
+  pos: [0, -5, 2]
+  pitch_deg: 20
+  roll_deg: 0
+  yaw_deg: 100
+  rotate_with_agent: ${rotate_with_agent}
+  width: ${width}
+  height: ${height}
+
+algo:
+  config:
+    export_video_cb: ${export_video_cb}
+
+rotate_with_agent: False
+store_raw: False
+enable_height_termination: False
+only_record_viewer: False
+
+# mimic settings
+fixed_motion_per_env: True
+reset_track_steps_min: 1000000
+reset_track_steps_max: 1000001
+max_episode_length: 1000
+
+# Sets up the callback and env
+export_video: True
+
+record_dir: output/recordings
+
+width: 1920
+height: 1080
+# width: 426
+# height: 240

@@ -1,0 +1,46 @@
+# @package _global_
+
+defaults:
+  - terrain
+
+terrain:
+  _target_: motion_tracking.envs.terrains.route_terrain.RouteTerrain
+  terrain_config:
+    num_levels: ${num_levels}
+    num_terrains: ${num_terrains}
+    num_samples: ${num_samples}
+    sample_width: ${sample_width}
+  route_config:
+    spawn_min_x: ${spawn_min_x}
+    spawn_min_y: ${spawn_min_y}
+    spawn_max_x: ${spawn_max_x}
+    spawn_max_y: ${spawn_max_y}
+    spawn_max_z: ${spawn_max_z}
+    spawn_segments: ${spawn_segments}
+    cone_render_scale: ${cone_render_scale}
+    astar_diagonal: ${astar_diagonal}
+    landmark_route: ${landmark_route}
+    artifact_sparsity: ${artifact_sparsity}
+    height_goal_threshold: ${height_goal_threshold}
+    slope_movement_threshold: ${slope_movement_threshold}
+    movement_slack: ${movement_slack}
+    single_subterrain_desc: ${single_subterrain_desc}
+    json_path: ${json_path}
+
+num_levels: 1
+num_terrains: 1
+num_samples: 16 #64
+sample_width: 1
+spawn_min_x: 0
+spawn_min_y: 0
+spawn_max_x: 20
+spawn_max_y: 20
+spawn_max_z: 1.5
+landmark_route: ["Grass", "Beach", "Desert", "Castle"]
+spawn_segments: ["Lake"]
+astar_diagonal: True
+artifact_sparsity: 10
+height_goal_threshold: 0.3
+slope_movement_threshold: 1.0
+movement_slack: 0.5
+json_path: "motion_tracking/data/route_subterrains/"

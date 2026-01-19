@@ -1,0 +1,10 @@
+# @package _global_
+
+ngpu: 1
+early_reward_term: null
+headless: False
+num_envs: 1
+init_start_prob: 1
+enable_height_termination: False
+reset_track_steps_min: 1000000
+reset_track_steps_max: 1000001

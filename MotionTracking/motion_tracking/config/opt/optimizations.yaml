@@ -1,0 +1,4 @@
+# @package _global_
+
+#amp_precision: 16
+cudnn_benchmark: True

@@ -1,0 +1,32 @@
+# @package _global_
+
+name: mimic_phase
+
+use_phase_obs: True
+
+
+mimic_phase_model:
+  _target_: motion_tracking.agents.models.common.Flatten
+  config:
+    normalize_obs: False
+    obs_clamp_value: ${obs_clamp_value}
+  num_in: 2
+  num_out: 2
+
+
+mu_model:
+  config:
+    extra_inputs:
+      mimic_phase: ${mimic_phase_model}
+
+
+critic:
+  config:
+    extra_inputs:
+      mimic_phase: ${mimic_phase_model}
+
+algo_extra_inputs:
+  mimic_phase:
+    retrieve_from_env: True
+    dtype: float
+    size: ${mimic_phase_model.num_in}

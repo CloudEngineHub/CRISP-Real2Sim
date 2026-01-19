@@ -1,0 +1,82 @@
+# @package _global_
+
+defaults:
+  - target_pose
+
+
+mu_model:
+  _target_: motion_tracking.agents.models.transformer.TransformerWithNorm
+  _recursive_: False
+  config:
+    activation: ${actor_activation}
+    latent_dim: 256
+    ff_size: 512
+    type_embedding_dim: 0
+    num_layers: 2
+    num_heads: 2
+    dropout: 0
+    num_obs_per_target_pose: ${num_obs_per_target_pose}
+    num_future_steps: ${num_future_steps}
+    obs_mlp:
+      initializer: ${actor_initializer}
+      units: ${obs_units}
+      activation: ${actor_activation}
+      use_layer_norm: ${actor_use_layer_norm}
+      normalize_obs: ${normalize_obs}
+      obs_clamp_value: ${obs_clamp_value}
+    extra_inputs:
+      mimic_target_poses: ${mimic_target_pose_model}
+    output_mlp:
+      initializer: ${actor_initializer}
+      units: ${actor_units}
+      activation: ${actor_activation}
+      use_layer_norm: ${actor_use_layer_norm}
+      normalize_obs: False
+      obs_clamp_value: False
+
+
+mimic_target_pose_model:
+  _target_: motion_tracking.agents.models.mlp.MLP_WithNorm
+  config:
+    initializer: ${actor_initializer}
+    units: ${obs_units}
+    activation: ${actor_activation}
+    use_layer_norm: ${actor_use_layer_norm}
+    normalize_obs: ${normalize_obs}
+    obs_clamp_value: ${obs_clamp_value}
+    encoder_input_dim: ${num_obs_per_target_pose}
+    operations:
+      - type: reshape
+        new_shape:
+          - -1
+          - ${num_obs_per_target_pose}
+      - type: encode
+      - type: reshape
+        new_shape:
+          - batch_size
+          - ${num_future_steps}
+          - ${mimic_target_pose_model.num_out}
+  num_in: ${eval:${num_future_steps}*${num_obs_per_target_pose}}
+  num_out: ${mu_model.config.latent_dim}
+
+
+critic_mimic_target_pose_model:
+  _target_: motion_tracking.agents.models.common.Flatten
+  config:
+    normalize_obs: ${normalize_obs}
+    obs_clamp_value: ${obs_clamp_value}
+  num_in: ${eval:${num_future_steps}*${num_obs_per_target_pose}}
+  num_out: ${eval:${num_future_steps}*${num_obs_per_target_pose}}
+
+
+num_obs_per_target_pose: 433  # 432 +1 for time
+num_obs_mimic_goal: 3
+num_obs_num_point: 30
+target_next_root: False
+save_data_for_cvae: False
+use_llc: False
+actor_activation: relu
+
+obs_units: [512, 256]
+
+target_pose_type: max-coords-future-rel-with-time

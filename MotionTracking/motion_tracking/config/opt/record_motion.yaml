@@ -1,0 +1,29 @@
+# @package _global_
+
+# export trajectories
+
+export_motion_cb:
+  _target_: motion_tracking.agents.callbacks.export_motion.ExportMotion
+  config:
+    record_dir: ${record_dir}
+    store_poselib: ${store_poselib}
+    index_offset: ${fixed_motion_offset}
+
+algo:
+  config:
+    export_motion_cb: ${export_motion_cb}
+
+enable_height_termination: False
+
+# mimic settings
+fixed_motion_per_env: True
+reset_track_steps_min: 1000000
+reset_track_steps_max: 1000001
+max_episode_length: 1000
+
+# Sets up the callback and env
+export_motion: True
+
+record_dir: output/recordings
+
+store_poselib: False

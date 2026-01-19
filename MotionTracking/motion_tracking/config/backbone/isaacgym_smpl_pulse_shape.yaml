@@ -1,0 +1,34 @@
+# @package _global_
+
+defaults:
+  - isaacgym
+
+# SMPL pulse-like humanoid with custom shape
+key_bodies: ["R_Ankle", "L_Ankle", "L_Hand", "R_Hand"]
+contact_bodies: ["R_Ankle", "L_Ankle", "R_Toe", "L_Toe"]
+asset_file_name: "mjcf/smpl_humanoid_pulse.xml"
+
+num_obs_per_target_pose: 432
+num_obs_mimic_scene: 3
+num_obs_per_target_pose_padded: 576
+ref_respawn_offset: 0.25
+num_bodies: 24
+robot_type: smpl
+
+# Generate a single SMPL MJCF at runtime from these shape params
+asset:
+  dynamic_shape:
+    enabled: true
+    # 0: neutral, 1: male, 2: female
+    gender: 0
+    # Provide 10 betas for SMPL. Adjust as needed.
+    betas: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    # Path to SMPL model parameters
+    smpl_data_dir: "data/smpl"
+
+    use_motion_betas: true
+
+# Plumb the dynamic shape mapping into the env's config.asset
+env_params:
+  asset:
+    dynamic_shape: ${asset.dynamic_shape}

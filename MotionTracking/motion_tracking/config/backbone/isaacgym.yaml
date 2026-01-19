@@ -1,0 +1,20 @@
+# @package _global_
+
+# Robot
+backbone: isaacgym
+asset_root: "motion_tracking/data/assets"
+asset_file_name: "mjcf/amp_humanoid_3d.xml"
+
+# Environment config
+sim_fps: 60
+control_freq_inv: 2 # 30 Hz, Gym also has substeps set to 2!
+sim_substeps: 2
+ref_respawn_offset: 0.1
+
+num_obs_per_target_pose: 270
+num_obs_per_target_pose_padded: 360
+num_bodies: 15
+
+env_target: ${env_path}
+env_config: ${env_params}
+robot_type: amp_humanoid_3d

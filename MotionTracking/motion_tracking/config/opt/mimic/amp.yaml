@@ -1,0 +1,25 @@
+# @package _global_
+
+# Joint-discriminator config
+disable_jd: False
+jd_units: [1024, 1024, 1024]
+jd_num_steps: 10
+jd_activation: relu
+jd_use_layer_norm: False
+jd_weight_decay: 0.0001
+jd_logit_weight_decay: 0.01
+jd_initializer: default
+
+jd_batch_size: 4096
+jd_reward_w: 0.5
+jd_grad_penalty: 2
+jd_replay_keep_prob: 0.01
+jd_replay_size: 200000
+
+use_rand_action_masks: False
+
+# Optimizer config
+jd_lr: 2e-5
+jd_betas: [0.9, 0.999]
+
+num_disc_steps: ${jd_num_steps}

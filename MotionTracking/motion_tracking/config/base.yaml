@@ -1,0 +1,68 @@
+defaults:
+  - algo: ppo
+  - env: humanoid
+  - backbone: isaacgym
+  - exp: mimic
+  - _self_
+
+seed: 0
+ngpu: 1
+
+save_every_n_epochs: null
+save_top_k: 1
+training_max_steps: 10000000000
+max_epochs: 100000
+gradient_clip_val: 0 # no clipping
+enable_checkpointing: False
+checkpoint_load_model_strict: True
+#eval_overrides: null
+#cudnn_benchmark: null
+#amp_precision: 16
+
+name: noname
+base_dir: results
+save_dir: ${base_dir}/${name}
+ckpt_path: null
+version: default
+
+data:
+  _target_: motion_tracking.utils.data.CountingDataModule
+  config:
+    ngpu: ${ngpu}
+    num_batches: null
+
+algo_inference:
+  _target_: ${algo._target_}.load_from_checkpoint
+  _recursive_: False
+  checkpoint_path: "${checkpoint}"
+  strict: ${checkpoint_load_model_strict}
+  config: ${algo.config}
+
+trainer:
+  _target_: pytorch_lightning.Trainer
+  accelerator: gpu
+  devices: ${ngpu}
+#  benchmark: ${cudnn_benchmark}
+#  precision: ${amp_precision}
+  max_epochs: ${max_epochs} #${eval:${training_max_steps}//${ngpu}//${num_envs}//${num_steps}}
+  log_every_n_steps: 32
+#  gradient_clip_val: ${gradient_clip_val}
+  default_root_dir: ${save_dir}
+  enable_checkpointing: ${enable_checkpointing}
+  callbacks:
+    # - _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    #   save_last: True
+    #   every_n_epochs: ${save_every_n_epochs}
+    #   save_top_k: ${save_top_k}
+    - _target_: pytorch_lightning.callbacks.LearningRateMonitor
+    - _target_: agents.callbacks.adlr_autoresume.AdlrAutoresume
+  logger:
+    - _target_: pytorch_lightning.loggers.TensorBoardLogger
+      save_dir: ${save_dir}
+  strategy: ddp_find_unused_parameters_true
+
+hydra: # So hydra will put your config info in the same dir as your checkpoints
+  run:
+    dir: ${save_dir}
+  sweep:
+    dir: ${save_dir}

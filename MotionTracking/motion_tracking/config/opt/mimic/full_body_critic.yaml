@@ -1,0 +1,19 @@
+# @package _global_
+
+
+# Critic config
+critic_mimic_target_pose_model:
+  _target_: motion_tracking.agents.models.common.Flatten
+  config:
+    normalize_obs: ${normalize_obs}
+    obs_clamp_value: ${obs_clamp_value}
+  num_in: ${eval:${num_future_steps}*${num_obs_per_target_pose}}
+  num_out: ${eval:${num_future_steps}*${num_obs_per_target_pose}}
+
+critic:
+  config:
+    extra_inputs:
+      mimic_target_poses: ${critic_mimic_target_pose_model}
+
+
+critic_units: [1024, 1024, 1024]

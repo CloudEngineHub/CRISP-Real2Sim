@@ -1,0 +1,25 @@
+# @package _global_
+
+defaults:
+  - ppo
+
+algo:
+  _target_: motion_tracking.agents.mimic.Mimic
+  _recursive_: False
+  config:
+    eval_metric_keys: ${eval_metric_keys}
+    early_terminate_cart_err: ${early_terminate_cart_err}
+    early_terminate_reward_too_bad_prob: ${early_terminate_reward_too_bad_prob}
+    num_future_steps: ${num_future_steps}
+    num_obs_per_target_pose: ${num_obs_per_target_pose}
+    num_obs_mimic_scene: ${num_obs_mimic_scene}
+    num_obs_mimic_goal: ${num_obs_mimic_goal}
+    target_pose_type: ${target_pose_type}
+    target_next_root: ${target_next_root}
+
+    eval_num_episodes: ${eval_num_episodes}
+    eval_length: ${eval_length}
+
+
+eval_num_episodes: 1
+eval_length: null
