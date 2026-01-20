@@ -36,3 +36,12 @@ cp data/smpl/SMPL_python_v.1.1.0/smpl/models/basicmodel_neutral_lbs_10_207_0_v1.
 
 wget --post-data "username=$username&password=$password" "https://download.is.tue.mpg.de/download.php?domain=smplx&sfile=models_smplx_v1_1.zip" -O './data/smplx/smplx.zip' --no-check-certificate --continue
 unzip data/smplx/smplx.zip -d data/smplx
+
+cp data/smplx/models/smplx/SMPLX_FEMALE.npz \
+   HMR/inputs/checkpoints/body_models/smplx/SMPLX_FEMALE.npz
+
+cp data/smplx/models/smplx/SMPLX_MALE.npz \
+   HMR/inputs/checkpoints/body_models/smplx/SMPLX_MALE.npz
+
+cp data/smplx/models/smplx/SMPLX_NEUTRAL.npz \
+   HMR/inputs/checkpoints/body_models/smplx/SMPLX_NEUTRAL.npz
