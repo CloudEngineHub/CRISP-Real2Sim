@@ -2452,6 +2452,14 @@ def main(
         os.makedirs(tgt_folder, exist_ok=True)
         if scene_mesh_contact is not None:
             scene_mesh_contact.export(os.path.join(tgt_folder, 'scene_mesh_sqs.obj'))
+
+        if scene_mesh_contact is not None and len(scene_mesh_contact.vertices) > 0:
+            scene_mesh_coacd_contact_handle = server.scene.add_mesh_trimesh(
+                name="/frames/scene_mesh_contact",
+                mesh=scene_mesh_contact,
+            )
+            scene_mesh_coacd_contact_handle.visible = True
+
         save_custom_mesh(per_sq_one_list, tgt_folder)
         
         if transfer_data:
