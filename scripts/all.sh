@@ -8,11 +8,11 @@ SCRIPT_REL="all_gv.sh"   # assumes you run this from the folder that contains al
 
 shopt -s nullglob
 
-for videos_dir in "$DATA_ROOT"/vmm*_videos; do
+for videos_dir in "$DATA_ROOT"/_emdb*_videos; do
   [[ -d "$videos_dir" ]] || continue
 
   base="$(basename "$videos_dir")"  # e.g. vmm_a_videos
-  if [[ "$base" != vmm* ]]; then
+  if [[ "$base" != _emdb* ]]; then
     continue
   fi
 
