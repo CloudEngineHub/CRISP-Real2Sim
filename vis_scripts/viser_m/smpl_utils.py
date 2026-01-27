@@ -659,7 +659,9 @@ def process_gv_smpl(
 
         smplx_out_world = smplx_out
 
-    smplx_joints_world = smplx_out_world.joints[:22].detach().cpu()
+    # print(smplx_out_world.joints.shape, 'smplx_out_world.joints.shape')
+
+    smplx_joints_world = smplx_out_world.joints[:, :22].detach().cpu() # [T, J, 3]
     smplx_height = float(
         (smplx_joints_world[..., 2].max() - smplx_joints_world[..., 2].min()).item()
     )

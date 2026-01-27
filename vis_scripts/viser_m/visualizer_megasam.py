@@ -28,7 +28,6 @@ import cv2
 import numpy as np
 import argparse
 from scipy.ndimage import distance_transform_edt
-import vdbfusion
 import torch.nn.functional as F
 from scipy.ndimage import gaussian_filter, sobel
 import json
@@ -339,82 +338,6 @@ def axis_angle_to_matrix_(rotvecs):
 
 import numpy as np
 import torch
-
-
-def tsdf_to_voxelGrid(vdb_volume: vdbfusion.VDBVolume,
-                      trunc_multiple: float = 1.0,
-                      cube_res: int = 256):
-    """
-    Convert ``vdbfusion.VDBVolume`` → (sdf_flat, voxelGrid).
-    
-    Parameters
-    ----------
-    trunc_multiple : float
-        Truncation distance as multiples of the voxel size (default 2×).
-    cube_res : int or None
-        • None   → keep native (Nx,Ny,Nz).  
-        • int    → resample to that *cubic* resolution (e.g. 100) to
-                    replicate the original CSV convention.
-
-    Returns
-    -------
-    sdf_flat : (N,) np.ndarray   – Fortran‑order flattening (X fastest).
-    voxelGrid : dict             – ready for ``_marching_primitives``.
-    """
-    # ────── 1. Extract TSDF & bounding box ────────────────────────────
-    grid              = vdb_volume.tsdf
-    min_ijk, max_ijk  = grid.evalActiveVoxelBoundingBox()   # (i,j,k)
-
-    Nx = max_ijk[0] - min_ijk[0] + 1
-    Ny = max_ijk[1] - min_ijk[1] + 1
-    Nz = max_ijk[2] - min_ijk[2] + 1
-    tsdf_np = np.zeros((Nx, Ny, Nz), dtype=np.float32)
-    grid.copyToArray(tsdf_np, ijk=min_ijk)
-
-    # ────── 2. World‑space AABB (metres) ─────────────────────────────
-    T     = grid.transform
-    xmin, ymin, zmin = T.indexToWorld(min_ijk)
-    xmax, ymax, zmax = T.indexToWorld(max_ijk)
-
-    # ────── 3. Optional resample to a cubic grid ─────────────────────
-    if cube_res is not None:
-        # scale factors along each axis
-        zoom_xyz = (cube_res / Nx, cube_res / Ny, cube_res / Nz)
-        tsdf_np  = scipy.ndimage.zoom(tsdf_np, zoom_xyz, order=1)  # trilinear
-        Nx, Ny, Nz = cube_res, cube_res, cube_res
-
-    # ────── 4. Coordinate lin‑spaces & point cloud ───────────────────
-    x_lin = np.linspace(xmin, xmax, Nx, dtype=float)
-    y_lin = np.linspace(ymin, ymax, Ny, dtype=float)
-    z_lin = np.linspace(zmin, zmax, Nz, dtype=float)
-
-    X, Y, Z   = np.meshgrid(x_lin, y_lin, z_lin, indexing='ij')  # (Nx,Ny,Nz)
-    pts_flat  = np.stack((X, Y, Z), axis=3).reshape(-1, 3, order='F').T
-
-    # ────── 5. Pack outputs ──────────────────────────────────────────
-    voxel_size = float(vdb_volume.voxel_size)
-    truncation = trunc_multiple * voxel_size
-
-    sdf_flat = tsdf_np.flatten(order='F')      # (Nx*Ny*Nz,)
-
-    voxelGrid = {
-        'size':        np.array([Nx, Ny, Nz], dtype=int),
-        'range':       np.array([xmin, xmax, ymin, ymax, zmin, zmax],
-                                dtype=float),
-        'x':           x_lin,
-        'y':           y_lin,
-        'z':           z_lin,
-        'points':      pts_flat,
-        'interval':    voxel_size,
-        'truncation':  truncation,
-        'disp_range':  [-np.inf, truncation],
-        'visualizeArclength': 0.01 *
-                              np.linalg.norm([xmax - xmin,
-                                              ymax - ymin,
-                                              zmax - zmin]),
-    }
-
-    return sdf_flat, voxelGrid
 
 
 
@@ -933,7 +856,7 @@ def main(
     bg_downsample_factor: int = 1,
     init_conf: bool = False,
     cam_thickness: float = 1.5,
-    save_mode: bool = False, 
+    save_mode: bool = True, 
     transfer_data: bool = False, 
     hmr_type: str = 'gv',
     moge_base_path: Path | str | None = None,
@@ -1261,7 +1184,7 @@ def main(
     )
     np.savez(
         hmr_dir / f"hps_track_smplx.npz",
-        global_joint_positions=joints_np.astype(np.float32, copy=False),
+        global_joint_positions=joints_np.astype(np.float32, copy=False), # [T, J, 3]
         height=np.float32(smplx_height),
     )
     human_transl_np = transl_world.detach().cpu().numpy()

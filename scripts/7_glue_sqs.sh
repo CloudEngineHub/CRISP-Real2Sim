@@ -7,6 +7,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 echo $REPO_ROOT
 VISER_DIR="$REPO_ROOT/vis_scripts/viser_m"
 VIS_SCRIPT="$VISER_DIR/vis.sh"
+SCRIPT2="$VISER_DIR/rot.sh"
+
 DATA_ROOT="$REPO_ROOT/data"
 
 usage() {
@@ -83,8 +85,16 @@ for seq_dir in "${seq_dirs[@]}"; do
   fi
 
   logfile="${LOG_DIR}/${seq_name}.log"
-  echo "[$(date +'%F %T')] Running vis.sh for ${seq_name} (log: $logfile)"
-  HMR_TYPE="$HMR_TYPE" SAVE_MODE=on bash "$VIS_SCRIPT" "$seq_name" >"$logfile" 2>&1
+  echo "[$(date +'%F %T')] Running scripts for ${seq_name} (log: $logfile)"
+
+  {
+    echo "===== $(date +'%F %T') vis.sh ====="
+    HMR_TYPE="$HMR_TYPE" SAVE_MODE=on bash "$VIS_SCRIPT"  "$seq_name"
+
+    echo "===== $(date +'%F %T') script2 ====="
+    bash "$SCRIPT2"     "$seq_name"
+
+  } >"$logfile" 2>&1
 done
 
 popd >/dev/null

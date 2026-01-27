@@ -1,24 +1,33 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Rotate scene + HMR using gravity alignment, then compute ONE shared z-translation (shape [1,3])
+read_ours_merged.py
+
+Rotate scene + HMR using gravity alignment, then compute ONE shared z-translation (shape [3])
 so that the rotated scene min z becomes 0, and apply it to BOTH scene and HMR.
 
-ADDED (per your request):
-- Only the *penetration-avoidance optimization* (optimize transl_delta) is integrated.
-- It does NOT use any extra "T" logic; it uses YOUR existing R_align + shared_translation output.
-- It does NOT dump hmr_after_opt; we still dump ONLY "hmr_after_shared" (but it includes the optimized translation if enabled).
+MERGED (your request):
+- Integrates the "file1" logic INTO this pipeline:
+  - Read joints from:   .../{seq}/{hmr_type}/hmr/hps_track_smplx.npz
+  - Transform joints with SAME (R_align, shared_translation) as scene
+  - Compute mesh z stats from the *post_scene* grounded mesh
+  - Save joint NPZ into post_scene (NO rl_scene):
+      post_scene/{seq}/{hmr_type}/hmr/{seq}.npz
+
+ADDED:
+- Penetration-avoidance optimization (optimize transl_delta) integrated (as in your current file2).
+- Fix: trans_hmr_final is always defined (even if optimization is skipped).
 
 Run:
-  python read_ours.py --seq-names far_robot
+  python read_ours_merged.py --seq-names far_robot
 
 Optional:
-  --no-optimize-penetration   Disable penetration optimization
-  --opt-...                   Tune optimization hyperparameters
+  --no-optimize-penetration
+  --opt-... knobs
+  --num-joints  (default 22)
 """
 from geocalib import GeoCalib
 import argparse
-import copy
 import shutil
 import sys
 import warnings
@@ -130,7 +139,6 @@ def _load_frame_for_rotation(
 def get_calibration_roll_pitch(image: np.ndarray, device: str) -> Tuple[float, float]:
     """Get roll and pitch calibration from an image using GeoCalib."""
     from geocalib.utils import print_calibration
-    
 
     model = GeoCalib().to(device)
     input_image = torch.tensor(image, dtype=torch.float32).to(device).permute(2, 0, 1)
@@ -262,7 +270,7 @@ def rotate_scene_geometry_once_and_ground_trimesh(
     Returns:
       scene_mesh_written (prefer sqs mesh path if exists)
       shared_translation (3,)
-      scene_mesh_for_sdf (trimesh.Trimesh)  # rotated+grounded final mesh (for SDF), if available
+      scene_mesh_for_sdf (trimesh.Trimesh)  # rotated+grounded final mesh (for SDF/stats), if available
     """
     output_root.mkdir(parents=True, exist_ok=True)
 
@@ -323,6 +331,127 @@ def rotate_scene_geometry_once_and_ground_trimesh(
 
 
 # -----------------------------------------------------------------------------
+# MERGED: Joint NPZ builder (from your "file1" script)
+# -----------------------------------------------------------------------------
+def pick_joints_array(npz: np.lib.npyio.NpzFile, src_path: Path) -> np.ndarray:
+    """Try common keys for joints and normalize to (T, J, 3)."""
+    keys = list(npz.keys())
+    candidates = [
+        "global_joint_positions",
+        "joints", "J", "j3d", "joints3d", "joints_world", "global_joint_positions",
+        "pred_joints", "post_scene", "joint_pos",
+    ]
+
+    arr = None
+    chosen_key = None
+    for k in candidates:
+        if k in npz:
+            arr = npz[k]
+            chosen_key = k
+            break
+
+    if arr is None:
+        raise KeyError(
+            f"Could not find joints array in {src_path}.\n"
+            f"Available keys: {keys}\n"
+            f"Add your key name to `candidates` in pick_joints_array()."
+        )
+
+    arr = np.asarray(arr)
+
+    # (T, J, 3)
+    if arr.ndim == 3 and arr.shape[-1] == 3:
+        return arr
+    # (T, 3, J)
+    if arr.ndim == 3 and arr.shape[1] == 3:
+        return np.transpose(arr, (0, 2, 1))
+    # (T, J*3)
+    if arr.ndim == 2 and arr.shape[-1] % 3 == 0:
+        J = arr.shape[-1] // 3
+        return arr.reshape(arr.shape[0], J, 3)
+
+    raise ValueError(f"Unsupported joints shape {arr.shape} from key '{chosen_key}' in {src_path}.")
+
+
+def _mesh_z_stats_from_trimesh(mesh: trimesh.Trimesh) -> tuple[float, float, float, float]:
+    """Return min_z, max_z, mesh_height, height_offset(-min_z) from mesh vertices."""
+    if mesh is None or mesh.vertices.size == 0:
+        raise RuntimeError("Empty mesh: cannot compute z stats.")
+    z = mesh.vertices[:, 2]
+    min_z = float(z.min())
+    max_z = float(z.max())
+    mesh_height = float(max_z - min_z)
+    height_offset = float(-min_z)
+    return min_z, max_z, mesh_height, height_offset
+
+
+def build_and_save_post_scene_joint_npz(
+    seq_name: str,
+    seq_input_root: Path,      # .../results/output/scene/{seq}/{hmr_type}
+    seq_output_root: Path,     # .../results/output/post_scene/{seq}/{hmr_type}
+    R_align: np.ndarray,       # (3,3)
+    t_shared: np.ndarray,      # (3,)
+    scene_mesh_for_stats: Optional[trimesh.Trimesh],
+    num_joints: int = 22,
+) -> Path:
+    """
+    Read joints from hps_track_smplx.npz, transform with SAME (R,t) as scene, compute mesh z stats
+    on *post_scene* grounded mesh, then save:
+      post_scene/.../hmr/{seq_name}.npz
+    """
+    hmr_dir = seq_input_root / "hmr"
+    joint_file = hmr_dir / "hps_track_smplx.npz"
+    if not joint_file.exists():
+        # fallback: pick the first *smplx*.npz if naming differs
+        alts = sorted(hmr_dir.glob("*smplx*.npz"))
+        if len(alts) > 0:
+            joint_file = alts[0]
+        else:
+            raise FileNotFoundError(f"Missing joints source npz: {hmr_dir / 'hps_track_smplx.npz'}")
+
+    data = np.load(joint_file, allow_pickle=True)
+    joints = pick_joints_array(data, joint_file).astype(np.float32, copy=False)  # (T,J,3)
+    print(joints.shape)
+    joints = joints[:, : int(num_joints), :]
+
+    R = R_align.astype(np.float32, copy=False)
+    t = t_shared.astype(np.float32, copy=False)
+
+    # apply row-vector convention: x' = x @ R.T + t
+    joints_post = joints @ R.T + t[None, None, :]
+
+    # stats from post-scene grounded mesh
+    if scene_mesh_for_stats is None or scene_mesh_for_stats.vertices.size == 0:
+        exported_mesh = seq_output_root / "scene_mesh_sqs" / "scene_mesh_sqs.obj"
+        if not exported_mesh.exists():
+            raise FileNotFoundError(f"Cannot compute mesh stats; missing: {exported_mesh}")
+        m = _load_trimesh_obj(exported_mesh)
+    else:
+        m = scene_mesh_for_stats
+
+    min_z, max_z, mesh_height, height_offset = _mesh_z_stats_from_trimesh(m)
+
+    dst = seq_output_root / "hmr" / f"{seq_name}.npz"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+
+    np.savez_compressed(
+        dst,
+        global_joint_positions=joints_post.astype(np.float32, copy=False),
+        height_offset=np.float32(height_offset),
+        height=np.float32(mesh_height),
+        mesh_min_z=np.float32(min_z),
+        mesh_max_z=np.float32(max_z),
+        seq_name=str(seq_name),
+        src_joint_file=str(joint_file),
+        src_mesh_file=str(seq_output_root / "scene_mesh_sqs" / "scene_mesh_sqs.obj"),
+        post_scene_dir=str(seq_output_root),
+        world_rotation=R.astype(np.float32, copy=False),
+        shared_translation=t[None, :].astype(np.float32, copy=False),
+    )
+    return dst
+
+
+# -----------------------------------------------------------------------------
 # Penetration optimization (ONLY the optimize part you asked for)
 # -----------------------------------------------------------------------------
 class SurfacePointCloud:
@@ -342,12 +471,11 @@ class SurfacePointCloud:
         self.kd_tree = KDTree(self.points)
 
     def get_sdf(self, query_points: np.ndarray, sample_count: int = 11, return_gradients: bool = False):
-        # query_points: (M,3)
         distances, indices = self.kd_tree.query(query_points, k=sample_count)
         distances = distances.astype(np.float32, copy=False)
 
-        closest_points = self.points[indices]  # (M,k,3)
-        closest_normals = self.normals[indices]  # (M,k,3)
+        closest_points = self.points[indices]     # (M,k,3)
+        closest_normals = self.normals[indices]   # (M,k,3)
 
         direction = query_points[:, None, :] - closest_points  # (M,k,3)
         inside_votes = np.einsum("mki,mki->mk", direction, closest_normals) < 0
@@ -359,8 +487,7 @@ class SurfacePointCloud:
         if not return_gradients:
             return sdf
 
-        # gradient: default toward nearest surface point; near surface use normal for stability
-        grad = direction[:, 0, :].copy()  # (M,3)
+        grad = direction[:, 0, :].copy()
         grad[inside] *= -1.0
 
         near_surface = np.abs(sdf) < 0.0075
@@ -373,18 +500,15 @@ class SurfacePointCloud:
 
 def build_surface_pointcloud_from_trimesh(
     mesh: trimesh.Trimesh,
-    sample_point_count: int = 10000000,
+    sample_point_count: int = 10_000_000,
 ) -> SurfacePointCloud:
-    """
-    Sample points on mesh surface + face normals to build an approximate SDF query structure.
-    """
+    """Sample points on mesh surface + face normals to build an approximate SDF query structure."""
     if mesh.vertices.size == 0 or mesh.faces.size == 0:
-        # empty mesh
         pts = np.zeros((1, 3), dtype=np.float32)
         nrm = np.array([[0.0, 0.0, 1.0]], dtype=np.float32)
         return SurfacePointCloud(pts, nrm)
 
-    pts, face_idx = trimesh.sample.sample_surface(mesh, sample_point_count)
+    pts, face_idx = trimesh.sample.sample_surface(mesh, int(sample_point_count))
     face_idx = face_idx.astype(np.int64, copy=False)
     normals = mesh.face_normals[face_idx]
     return SurfacePointCloud(pts, normals)
@@ -393,7 +517,6 @@ def build_surface_pointcloud_from_trimesh(
 class DifferentiableSDF(torch.autograd.Function):
     @staticmethod
     def forward(ctx, surface_pc: SurfacePointCloud, points_tensor: torch.Tensor):
-        # points_tensor: (M,3) on GPU/CPU; SDF computed on CPU numpy
         pts_np = points_tensor.detach().cpu().numpy()
         sdf, grad = surface_pc.get_sdf(pts_np, return_gradients=True)
         ctx.save_for_backward(torch.from_numpy(grad).to(points_tensor.device, dtype=points_tensor.dtype))
@@ -402,16 +525,11 @@ class DifferentiableSDF(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         (grad,) = ctx.saved_tensors
-        # chain rule: dL/dx = dL/dsdf * dsdf/dx  (approx by grad)
         return None, grad_output.unsqueeze(-1) * grad
 
 
 def _fps_torch(x: torch.Tensor, npoint: int) -> torch.Tensor:
-    """
-    Simple farthest point sampling on a single point set.
-    x: (N,3)
-    return indices: (npoint,)
-    """
+    """Simple farthest point sampling on a single point set. x: (N,3) -> indices: (npoint,)"""
     device = x.device
     N = x.shape[0]
     if npoint >= N:
@@ -436,7 +554,7 @@ def optimize_translation_to_avoid_penetration(
     poses_rotm: torch.Tensor,          # (T,23,3,3)
     global_orient_rotm: torch.Tensor,  # (T,1,3,3)
     betas: torch.Tensor,               # (T,10) or (1,10)
-    transl_orig: torch.Tensor,         # (T,3) (already in aligned/world coords)
+    transl_orig: torch.Tensor,         # (T,3)
     sample_n_verts: int = 256,
     num_iters: int = 200,
     lr: float = 1e-2,
@@ -451,7 +569,7 @@ def optimize_translation_to_avoid_penetration(
     Optimize per-frame translation delta to reduce penetration into scene.
 
     Returns:
-      transl_delta: (T,3) tensor (same device as transl_orig)
+      transl_delta: (T,3) tensor
     """
     device = transl_orig.device
     T = transl_orig.shape[0]
@@ -462,7 +580,6 @@ def optimize_translation_to_avoid_penetration(
 
     optimizer = torch.optim.Adam([transl_delta], lr=float(lr))
 
-    # pre-pick FPS vertex indices from frame 0 for consistency
     with torch.no_grad():
         out0 = smpl_model(
             body_pose=poses_rotm[:1],
@@ -472,22 +589,19 @@ def optimize_translation_to_avoid_penetration(
             pose2rot=False,
             default_smpl=True,
         )
-        v0 = out0.vertices[0]  # (N,3)
+        v0 = out0.vertices[0]
         vidx = _fps_torch(v0, int(sample_n_verts)).detach()
 
     for _ in range(int(num_iters)):
         optimizer.zero_grad(set_to_none=True)
 
-        # optional frame subsampling for speed (deterministic stride)
         if frame_stride <= 1:
-            frame_idx = None
             poses_use = poses_rotm
             go_use = global_orient_rotm
             betas_use = betas
             transl_use = transl_orig + transl_delta
         else:
             idx = torch.arange(0, T, int(frame_stride), device=device)
-            frame_idx = idx
             poses_use = poses_rotm[idx]
             go_use = global_orient_rotm[idx]
             if betas.ndim == 2 and betas.shape[0] == T:
@@ -506,10 +620,10 @@ def optimize_translation_to_avoid_penetration(
         )
         verts = smpl_out.vertices  # (Tb,N,3)
 
-        verts_sub = verts[:, vidx, :]          # (Tb,K,3)
-        verts_flat = verts_sub.reshape(-1, 3)  # (Tb*K,3)
+        verts_sub = verts[:, vidx, :]
+        verts_flat = verts_sub.reshape(-1, 3)
 
-        sdf_vals = DifferentiableSDF.apply(surface_pc, verts_flat)  # (Tb*K,)
+        sdf_vals = DifferentiableSDF.apply(surface_pc, verts_flat)
         penetration_loss = torch.clamp(margin - sdf_vals, min=0.0).mean()
 
         reg_loss = (transl_delta ** 2).mean()
@@ -517,7 +631,6 @@ def optimize_translation_to_avoid_penetration(
         if T <= 1:
             smooth_loss = torch.zeros((), device=device, dtype=transl_orig.dtype)
         else:
-            # smoothness always applied on FULL sequence (not subsampled) for stable motion
             smooth_loss = (torch.diff(transl_orig + transl_delta, dim=0) ** 2).mean()
 
         total = float(w_pen) * penetration_loss + float(w_reg) * reg_loss + float(w_smooth) * smooth_loss
@@ -608,64 +721,19 @@ def dump_hmr_visualization(
     plot_translation_and_velocity(transl_cpu.numpy(), save_path=save_dir / f"{prefix}_transl_plot.png")
 
 
-def transform_saved_joint_npz_like_scene(
-    src_npz: Path,
-    dst_npz: Path,
-    R_align: np.ndarray,  # (3,3)
-    t_shared: np.ndarray,  # (3,)
-) -> bool:
-    """
-    Load an NPZ containing `global_joint_positions` and apply the SAME transform as scene:
-        x' = x @ R_align.T + t_shared
-    Supports shapes:
-      - (J, 3)
-      - (T, J, 3)
-      - (N, 3)  (generic)
-    Writes out an NPZ with transformed `global_joint_positions` (and preserves other keys if present).
-    Returns True if transformed+saved, False if src missing or key missing.
-    """
-    if not src_npz.exists():
-        return False
-
-    data = np.load(src_npz, allow_pickle=True)
-    if "global_joint_positions" not in data:
-        return False
-
-    joints = data["global_joint_positions"].astype(np.float32, copy=False)
-    R = R_align.astype(np.float32, copy=False)
-    t = t_shared.astype(np.float32, copy=False)
-
-    # apply row-vector convention: x' = x @ R.T + t
-    if joints.ndim == 2 and joints.shape[-1] == 3:
-        joints_T = joints @ R.T + t[None, :]
-    elif joints.ndim == 3 and joints.shape[-1] == 3:
-        # (T,J,3)
-        joints_T = joints @ R.T + t[None, None, :]
-    else:
-        raise ValueError(f"Unsupported global_joint_positions shape: {joints.shape}")
-
-    # Preserve any other keys in the npz
-    out_kwargs = {k: data[k] for k in data.files if k != "global_joint_positions"}
-    out_kwargs["global_joint_positions"] = joints_T.astype(np.float32, copy=False)
-
-    dst_npz.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(dst_npz, **out_kwargs)
-    return True
-
-
 # -----------------------------------------------------------------------------
 # Transform correctness (GV-style offset correction)
 # -----------------------------------------------------------------------------
 def correct_transl_after_rigid_transform_from_original(
     smpl_model_cpu: SMPL,
-    body_pose_rotm: torch.Tensor,  # (T, 23, 3, 3)
-    betas: torch.Tensor,  # (T,10) or (1,10)
-    global_orient_rotm_orig: torch.Tensor,  # (T,1,3,3) ORIGINAL
-    transl_orig: torch.Tensor,  # (T,3) ORIGINAL
-    R_align: np.ndarray,  # (3,3)
-    t_shared: np.ndarray,  # (3,)
-    global_orient_rotm_T: torch.Tensor,  # (T,1,3,3) already R-applied
-    transl_T: torch.Tensor,  # (T,3) already (R,t)-applied
+    body_pose_rotm: torch.Tensor,                # (T, 23, 3, 3)
+    betas: torch.Tensor,                         # (T,10) or (1,10)
+    global_orient_rotm_orig: torch.Tensor,        # (T,1,3,3) ORIGINAL
+    transl_orig: torch.Tensor,                    # (T,3) ORIGINAL
+    R_align: np.ndarray,                          # (3,3)
+    t_shared: np.ndarray,                         # (3,)
+    global_orient_rotm_T: torch.Tensor,            # (T,1,3,3) already R-applied
+    transl_T: torch.Tensor,                        # (T,3) already (R,t)-applied
 ) -> Tuple[torch.Tensor, float]:
     """
     GV-style correctness check:
@@ -680,8 +748,8 @@ def correct_transl_after_rigid_transform_from_original(
     device = transl_T.device
     dtype = transl_T.dtype
 
-    R = torch.from_numpy(R_align).to(device="cpu", dtype=torch.float32)[None, :, :]  # (1,3,3)
-    t = torch.from_numpy(t_shared).to(device="cpu", dtype=torch.float32)[None, :]  # (1,3)
+    R = torch.from_numpy(R_align).to(device="cpu", dtype=torch.float32)[None, :, :]
+    t = torch.from_numpy(t_shared).to(device="cpu", dtype=torch.float32)[None, :]
 
     body_pose_cpu = body_pose_rotm.detach().cpu()
     betas_cpu = betas.detach().cpu()
@@ -807,6 +875,7 @@ def process_sequence(
     opt_w_smooth: float,
     opt_z_init: float,
     opt_frame_stride: int,
+    num_joints: int,
 ) -> None:
     repo_root = REPO_ROOT
     seq_input_root = input_root / seq_name / hmr_type
@@ -838,25 +907,24 @@ def process_sequence(
         R_align=world_rotation,
     )
 
-    joints_src = seq_input_root / "hmr" / f"{seq_name}.npz"
-    joints_dst = seq_output_root / "hmr" / f"{seq_name}.npz"
-
-    did = transform_saved_joint_npz_like_scene(
-        src_npz=joints_src,
-        dst_npz=joints_dst,
-        R_align=world_rotation,
-        t_shared=shared_translation,
-    )
-    if did:
-        print(f"[OK] Transformed joint npz -> {joints_dst}")
-    else:
-        print(f"[INFO] No joint npz transformed (missing file or key): {joints_src}")
-
-    shared_translation_1x3 = shared_translation[None, :]
     T_align[:3, 3] = shared_translation
-
     np.save(seq_output_root / "world_rotation.npy", world_rotation.astype(np.float32))
     np.savetxt(seq_output_root / "world_rotation.txt", world_rotation, fmt="%.8f")
+
+    # MERGED: build the joint npz inside post_scene (NO rl_scene)
+    try:
+        joints_dst = build_and_save_post_scene_joint_npz(
+            seq_name=seq_name,
+            seq_input_root=seq_input_root,
+            seq_output_root=seq_output_root,
+            R_align=world_rotation,
+            t_shared=shared_translation,
+            scene_mesh_for_stats=scene_mesh_for_sdf,  # rotated+grounded mesh
+            num_joints=num_joints,
+        )
+        print(f"[OK] Built joint npz (post_scene) -> {joints_dst}")
+    except Exception as e:
+        print(f"[WARN] Failed to build joint npz for {seq_name}: {e}")
 
     # 3) HMR load
     smpl_data_path = seq_input_root / "hmr" / "hps_track.npy"
@@ -871,14 +939,17 @@ def process_sequence(
     global_orient = global_orient.to(device=device, dtype=dtype)
 
     world_rot_torch = torch.from_numpy(world_rotation).to(device=device, dtype=dtype)
-    translation_offset = torch.from_numpy(shared_translation_1x3).to(device=device, dtype=dtype)
+    translation_offset = torch.from_numpy(shared_translation[None, :]).to(device=device, dtype=dtype)
 
     # 4) SINGLE transform for HMR (parameter-space)
     global_orient_rot = torch.einsum("ij,t...jk->t...ik", world_rot_torch, global_orient)
     trans_rot = trans @ world_rot_torch.T
-    trans_shared = trans_rot + translation_offset
+    trans_shared = trans_rot + translation_offset  # (T,3)
 
-    # 4.5) Optional GV-style correction so that SMPL(params_T) matches (R,t)*SMPL(params_orig)
+    # default final translation (even if optimization is skipped)
+    trans_hmr_final = trans_shared
+
+    # 4.5) Optional GV-style correction
     if correct_transl:
         smpl_model_cpu = SMPL().to("cpu")
         trans_corrected, mean_err = correct_transl_after_rigid_transform_from_original(
@@ -893,14 +964,14 @@ def process_sequence(
             transl_T=trans_shared,
         )
         print(f"[ALIGN] mean vertex error after transl correction: {mean_err:.6f}")
-        trans_shared = trans_corrected  # corrected transl in world coords
+        trans_shared = trans_corrected
+        trans_hmr_final = trans_shared
 
-    # 4.6) Penetration optimization (ONLY this part was added)
+    # 4.6) Penetration optimization
     if optimize_penetration and (scene_mesh_for_sdf is not None) and (scene_mesh_for_sdf.vertices.size > 0):
         print("[OPT] Building surface pointcloud (approx SDF) ...")
         surface_pc = build_surface_pointcloud_from_trimesh(scene_mesh_for_sdf, sample_point_count=int(opt_sdf_samples))
 
-        # SMPL on GPU/CPU (match transl device)
         smpl_model_opt = SMPL().to(device)
 
         print("[OPT] Optimizing translation delta to avoid penetration ...")
@@ -921,14 +992,14 @@ def process_sequence(
             z_init=float(opt_z_init),
             frame_stride=int(opt_frame_stride),
         )
-        trans_hmr_final = trans_shared + transl_delta 
-        z_offset = 0.2
-        trans_hmr_final[:, 2] += z_offset # <-- apply optimized delta to final transl
-        print("[OPT] Done. Applied transl_delta to trans_shared.")
+        trans_hmr_final = trans_shared + transl_delta
+        z_offset = 0.1
+        trans_hmr_final[:, 2] += z_offset
+        print("[OPT] Done. Applied transl_delta to trans_shared (+ extra z_offset=0.1).")
     elif optimize_penetration:
         print("[OPT] Skipped (no scene mesh available for SDF).")
 
-    # 5) save ONLY hmr_after_shared visualization (no hmr_after_opt)
+    # 5) save visualization
     smpl_model_cpu = SMPL().to("cpu")
     dump_hmr_visualization(
         smpl_model_cpu=smpl_model_cpu,
@@ -950,8 +1021,9 @@ def process_sequence(
         dim=-1,
     ).detach().cpu().numpy()
 
+    (seq_output_root / "hmr").mkdir(parents=True, exist_ok=True)
     np.savez(
-        seq_output_root / f"{seq_name}_ours.npz",
+        seq_output_root / "hmr" / "human_motion.npz",
         trans=trans_hmr_final.detach().cpu().numpy(),
         poses=poses_axis_angle,
         betas=betas.detach().cpu().numpy(),
@@ -960,7 +1032,7 @@ def process_sequence(
         gender="neutral",
         mocap_framerate=30,
         world_rotation=world_rotation,
-        shared_translation=shared_translation_1x3.astype(np.float32),
+        shared_translation=shared_translation[None, :].astype(np.float32),
     )
 
     # 7) write back hps_track (updated)
@@ -968,8 +1040,7 @@ def process_sequence(
         hmr_payload["global_orient"] = global_orient_rot.to(hmr_payload["global_orient"].device)
     hmr_payload["transl"] = trans_hmr_final.to(hmr_payload["transl"].device)
 
-    # pred_cam: rotate + add ONLY shared translation (no camera translation)
-    # NOTE: we intentionally DO NOT add per-frame optimization delta into pred_cam.
+    # pred_cam: rotate + add ONLY shared translation (no per-frame optimization delta)
     if isinstance(hmr_payload.get("pred_cam"), list):
         pred_cam_list = hmr_payload["pred_cam"]
         if len(pred_cam_list) >= 1 and torch.is_tensor(pred_cam_list[0]):
@@ -986,7 +1057,6 @@ def process_sequence(
         hmr_payload["pred_cam"] = pred_cam_list
 
     hmr_dst = seq_output_root / "hmr" / "hps_track.npy"
-    hmr_dst.parent.mkdir(parents=True, exist_ok=True)
     np.save(hmr_dst, hmr_payload)
 
     export_to_targets(seq_name, seq_output_root, export_motion_root, export_urdf_root, export_tag)
@@ -1019,7 +1089,10 @@ def parse_args(argv: Optional[Sequence[str]] = None):
         help="Disable GV-style translation correction (verts(params_T) matching (R,t)*verts(params_orig)).",
     )
 
-    # penetration optimization knobs (enabled by default)
+    # MERGED: how many joints to keep in post_scene/{seq}.npz
+    parser.add_argument("--num-joints", type=int, default=22, help="How many joints to keep in saved {seq}.npz (default 22).")
+
+    # penetration optimization knobs
     parser.add_argument(
         "--no-optimize-penetration",
         action="store_true",
@@ -1096,6 +1169,7 @@ def main(argv: Optional[Sequence[str]] = None):
             opt_w_smooth=args.opt_w_smooth,
             opt_z_init=args.opt_z_init,
             opt_frame_stride=args.opt_frame_stride,
+            num_joints=args.num_joints,
         )
 
 
