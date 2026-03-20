@@ -2,6 +2,8 @@
 set -euo pipefail
 
 DOWNLOAD_URL="https://download.is.tue.mpg.de/download.php"
+DOWNLOAD_PAGE_URL="https://smpl.is.tue.mpg.de/download.php"
+USER_AGENT="${SMPL_USER_AGENT:-Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0 Safari/537.36}"
 
 require_cmd() {
     local cmd="$1"
@@ -51,8 +53,13 @@ download_with_auth() {
     headers_file="$(mktemp)"
     http_code="$(
         curl -sS -L \
+            --http1.1 \
             --connect-timeout 20 \
             --max-time 120 \
+            -A "$USER_AGENT" \
+            -e "$DOWNLOAD_PAGE_URL" \
+            -H "Origin: https://smpl.is.tue.mpg.de" \
+            -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
             -D "$headers_file" \
             -o "$out_path" \
             -w '%{http_code}' \
