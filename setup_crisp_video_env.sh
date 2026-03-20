@@ -276,6 +276,20 @@ if (( FETCH_ASSETS == 1 )); then
             -O "$REPO_ROOT/prep/HMR/inputs/" \
             --remaining-ok --continue
     fi
+    if [[ ! -f "$REPO_ROOT/prep/HMR/inputs/checkpoints/body_models/smpl/SMPL_NEUTRAL.pkl" ]]; then
+        mkdir -p "$REPO_ROOT/prep/HMR/inputs/checkpoints/body_models/smpl" "$REPO_ROOT/prep/data/smpl"
+        "$PYTHON_BIN" -m gdown \
+            "https://drive.google.com/uc?id=1bcj7zu3K_u2c_g1ed5FchqZQP6xTJPtN" \
+            -O "$REPO_ROOT/prep/HMR/inputs/checkpoints/body_models/smpl/SMPL_NEUTRAL.pkl" \
+            --continue
+    fi
+    if [[ -f "$REPO_ROOT/prep/HMR/inputs/checkpoints/body_models/smpl/SMPL_NEUTRAL.pkl" && \
+          ! -f "$REPO_ROOT/prep/data/smpl/SMPL_NEUTRAL.pkl" ]]; then
+        mkdir -p "$REPO_ROOT/prep/data/smpl"
+        cp -f \
+            "$REPO_ROOT/prep/HMR/inputs/checkpoints/body_models/smpl/SMPL_NEUTRAL.pkl" \
+            "$REPO_ROOT/prep/data/smpl/SMPL_NEUTRAL.pkl"
+    fi
 
     log_step "Prefetching torch.hub repositories used by MogeSAM"
     if [[ ! -d "$TORCH_HUB_DIR/facebookresearch_co-tracker_main/.git" ]]; then
