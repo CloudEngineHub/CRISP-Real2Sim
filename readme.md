@@ -52,7 +52,16 @@ bash one_command_crisp_video_test.sh my_crisp_env /abs/path/to/data_split_root
 
 1. **SMPL / SMPL-X body models** (required for rendering and evaluation)
    - Register at [SMPL](https://smpl.is.tue.mpg.de/) and [SMPL-X](https://smpl-x.is.tue.mpg.de/).
-   - For a clean clone, place the downloaded files using the structure below.
+   - Recommended:
+
+```bash
+cd prep
+bash smplme.sh
+cd ..
+```
+
+   - The script prompts for your official SMPL credentials and populates the HMR body-model paths used by this repo.
+   - If the upstream download flow fails, place the files manually using the structure below.
 
 ```text
 prep/data/
