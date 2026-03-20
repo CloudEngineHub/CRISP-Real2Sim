@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENV_NAME="${1:-motiontracking_viser}"
+ENV_NAME="${1:-crisp_rl}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$SCRIPT_DIR"
 MT_DIR="$REPO_ROOT/MotionTracking"

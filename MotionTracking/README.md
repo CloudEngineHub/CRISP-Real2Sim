@@ -15,9 +15,9 @@ results/output/post_scene/<SEQ>/<HMR_TYPE>/
 From the repository root:
 
 ```bash
-bash setup_motiontracking_viser_env.sh motiontracking_viser
+bash setup_motiontracking_viser_env.sh crisp_rl
 source ~/miniconda3/etc/profile.d/conda.sh
-conda activate motiontracking_viser
+conda activate crisp_rl
 bash validate_motiontracking_viser_env.sh
 ```
 
