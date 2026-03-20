@@ -16,51 +16,83 @@ git clone --recursive https://github.com/Z1hanW/CRISP-Real2Sim.git
 cd CRISP-Real2Sim
 ```
 
-### Create and Activate the Conda Environment
+### One-Command Setup And Test
 
 ```bash
-conda create -n crisp python=3.10 -y
-conda activate crisp
+bash one_command_crisp_video_test.sh
 ```
 
-### Install PyTorch (CUDA 12.4 build)
+This is the recommended entrypoint for the CRISP video pipeline. It creates or
+reuses a dedicated conda environment named `crisp_video_onecmd`, fetches the
+demo-side assets needed by the wrapper, and runs the demo pipeline in one
+command. It does not modify the existing `crisp` environment.
+
+To use a different environment name or your own data root:
 
 ```bash
-pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 "xformers>=0.0.27" \
-  --index-url https://download.pytorch.org/whl/cu124
-pip install torch-scatter -f https://data.pyg.org/whl/torch-2.4.1+cu124.html
-pip install -r requirements.txt
-pip install --no-build-isolation "git+https://github.com/facebookresearch/pytorch3d.git@stable"
-python -m pip install -U timm
-pip install numpy==1.26.4
-python -m pip install --no-build-isolation "git+https://github.com/mattloper/chumpy.git"
+bash one_command_crisp_video_test.sh my_crisp_video_env /abs/path/to/data_split_root
 ```
 
-> If you encounter compilation errors (usually on `pytorch3d` or CUDA extensions), install a compatible compiler toolchain: `conda install -c conda-forge gxx_linux-64=11`.
+The second argument can be either a custom root or `--demo`.
 
-### Extra Installation Scripts
+### Split Setup And Run (Advanced)
 
-Some dependencies (for rendering, viewers, etc.) are wrapped in helper scripts inside `prep/`:
+If you want to install the environment first and keep assets separate, use the
+split helpers below. This setup path validates the core CRISP video pipeline
+environment only and intentionally excludes `Contact-Predictor` and
+`MotionTracking`.
 
 ```bash
-cd prep
-sh install*
-cd ..
+bash setup_crisp_video_env.sh crisp_video_test
+```
+
+To validate the installed environment:
+
+```bash
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate crisp_video_test
+bash validate_crisp_video_env.sh
+```
+
+If you also want setup to fetch the demo checkpoints and torch.hub caches:
+
+```bash
+bash setup_crisp_video_env.sh crisp_video_test --with-assets
+```
+
+If you already have your own input split, or you have already fetched assets:
+
+```bash
+bash run_crisp_video.sh /abs/path/to/data_split_root
+```
+
+### Dependency Manifest (Advanced)
+
+The bulk pip dependency set used by the setup script is consolidated in:
+
+```text
+requirements-crisp-video.txt
+```
+
+The environment smoke validator is:
+
+```bash
+bash validate_crisp_video_env.sh
 ```
 
 ---
 
 ## 2. Download Assets and Data
 
-1. **SMPL/SMPL-X body models** (required for rendering and evaluation)
+1. **SMPL / SMPL-X body models** (required for rendering and evaluation)
    - Register at [SMPL](https://smpl.is.tue.mpg.de/) and [SMPL-X](https://smpl-x.is.tue.mpg.de/).
-   - Place the downloaded `.pkl` files using the structure below.
+   - For a clean clone, place the downloaded files using the structure below.
 
 ```
 prep/data/
 └── body_models/
     ├── smpl/SMPL_{GENDER}.pkl
-    └── smplx/SMPLX_{GENDER}.pkl
+    └── smplx/SMPLX_{GENDER}.pkl or SMPLX_{GENDER}.npz
 ```
 
 2. **Demo videos and metadata**
@@ -76,34 +108,67 @@ gdown --folder "https://drive.google.com/drive/folders/1k712Oj9StmWXRzSeSMiHZc3L
 
 ## 3. Run the Full Pipeline
 
-The scripts expect your source sequences to live under either `*_videos` or `*_img` folders. Remove that suffix when you feed paths to the scripts.
+The wrapper and scripts expect your source sequences to live under either
+`*_videos` or `*_img` folders. Remove that suffix when you feed paths to the
+scripts.
 
 ```
 data/
 ├── demo_videos/
-│   └── walk-kicking/        # example sequence, this is SEQ_NAME
+│   └── wall-kicking.mp4
 └── YOUR_videos/
-    ├── seq_a/
-    └── seq_b/
+    ├── seq_a.mp4
+    └── seq_b.mp4
 ```
 
 ```bash
-sh all_gv.sh /path/to/data/demo        # not /path/to/data/demo_videos
+bash run_crisp_video.sh --demo
 ```
 
-- The script will iterate through every `*_videos` (or `*_img`) folder under the path you supply.
-- Intermediate data, meshes, and evaluations are written back into the respective sequence directories.
+For your own data:
+
+```bash
+bash run_crisp_video.sh /path/to/data/demo        # not /path/to/data/demo_videos
+```
+
+- The pipeline will iterate through every sequence under the root you supply.
+- Intermediate outputs are written under `results/init/`.
+- Final scene outputs are written under `results/output/scene/`.
+- The main scene result is saved as:
+
+```text
+results/output/scene/<SEQ_NAME>_gv_sgd_cvd_hr.npz
+```
+
+- The SQS scene export is saved as:
+
+```text
+results/output/scene/<SEQ_NAME>/gv/scene_mesh_sqs/scene_mesh_sqs.urdf
+```
+
+### Validated Example
+
+The current helper-based environment was validated by running one full video
+through the new environment and producing:
+
+```text
+results/output/scene/wall-kicking-envtest-20260317_gv_sgd_cvd_hr.npz
+results/output/scene/wall-kicking-envtest-20260317/gv/scene_mesh_sqs/scene_mesh_sqs.urdf
+```
 
 ---
 
 ## 4. Visualize Human–Scene Reconstructions
-Compile viser
+
+Compile viser if needed:
+
 ```bash
 cd vis_scripts/viser_m
 pip install -e .
 ```
 
-Visualize your sequences (e.g. wall-kicking)
+Visualize your sequences:
+
 ```bash
 bash vis.sh ${SEQ_NAME}
 ```
@@ -117,7 +182,10 @@ Common flags (see script header for the full list):
 
 ## 5. Train Your Agent
 
-Code Testing, See you in days.
+See [MotionTracking/README.md](MotionTracking/README.md).
+
+That guide covers environment setup, CRISP-to-RL transfer, training, `viser`
+debug runs, evaluation, and SMPL parameter export.
 
 ---
 
@@ -133,4 +201,3 @@ python agents/vis_agent.py \
 ```
 
 Pass `--scene_name` or `--camera_pose_file` if your controller requires a custom scene or camera path.
-

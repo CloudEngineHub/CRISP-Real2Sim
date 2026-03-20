@@ -1,17 +1,6 @@
-# MotionTracking Guide
+# MotionTracking
 
-This folder consumes aligned CRISP outputs and turns them into the directory
-layout expected by MotionTracking training and evaluation.
-
-## What MotionTracking Expects
-
-MotionTracking does not train directly from `results/output/scene/...`.
-It expects:
-
-- `motion_data/<DATE>/<SEQ>_<METHOD>.npy`
-- `motion_tracking/data/assets/urdf/<DATE>/<SEQ>/<METHOD>/<METHOD>.urdf`
-
-That means the source must already be the aligned `post_scene` output:
+Use this after CRISP has produced aligned `post_scene` outputs:
 
 ```text
 results/output/post_scene/<SEQ>/<HMR_TYPE>/
@@ -19,10 +8,9 @@ results/output/post_scene/<SEQ>/<HMR_TYPE>/
 └── scene_mesh_sqs/
 ```
 
-If `human_motion.npz` is missing, the CRISP post-scene step is not complete yet
-and the sequence cannot be bridged into MotionTracking training.
+`results/output/scene/...` alone is not enough.
 
-## 1. Setup The Standalone Environment
+## 1. Install The Environment
 
 From the repository root:
 
@@ -30,111 +18,81 @@ From the repository root:
 bash setup_motiontracking_viser_env.sh motiontracking_viser
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate motiontracking_viser
+bash validate_motiontracking_viser_env.sh
 ```
 
-This environment is independent from the CRISP video environment. It supports:
+## 2. Transfer CRISP Output Into The RL Layout
 
-- Isaac Gym based MotionTracking
-- `robot-viser` visualization
-- CRISP-to-MotionTracking motion conversion
-- automatic runtime preparation of `MotionTracking/data/smpl`
-
-## 2. Bridge A CRISP Sequence Into MotionTracking
-
-Move into this folder:
+Full bridge into `MotionTracking/motion_data` and `MotionTracking/motion_tracking/data/assets/urdf`:
 
 ```bash
 cd MotionTracking
+bash bridge_crisp_sequence.sh <SEQ_NAME> <DATE_TAG> ours gv
 ```
 
-The fastest entrypoint is:
+Optional motion-only helper from the repository root:
 
 ```bash
-bash bridge_crisp_sequence.sh <SEQ_NAME> [DATE_TAG] [METHOD] [HMR_TYPE]
-```
-
-Example:
-
-```bash
-bash bridge_crisp_sequence.sh 40_indoor_walk_big_circle bridge0318 ours gv
-```
-
-This materializes:
-
-```text
-motion_data/<DATE>/<SEQ>_<METHOD>.npz
-motion_data/<DATE>/<SEQ>_<METHOD>.npy
-motion_tracking/data/assets/urdf/<DATE>/<SEQ>/<METHOD>/<METHOD>.urdf
-motion_tracking/data/assets/urdf/<DATE>/<SEQ>/<METHOD>/<METHOD>.obj
-motion_tracking/data/assets/urdf/<DATE>/<SEQ>/<METHOD>/part_*.obj
-```
-
-By default the bridge copies files into MotionTracking. If you want symlinks
-instead:
-
-```bash
-bash bridge_crisp_sequence.sh <SEQ_NAME> <DATE_TAG> <METHOD> <HMR_TYPE> --materialize symlink
+python vis_scripts/viser_m/process_to_rl.py --seq-names <SEQ_NAME> --date <DATE_TAG> --method ours --hmr-type gv
 ```
 
 ## 3. Train
 
-Once the bridge step finishes:
+Default training:
 
 ```bash
-bash run_bridged_train.sh <DATE_TAG> <SEQ_NAME> <METHOD>
+cd MotionTracking
+bash run_bridged_train.sh <DATE_TAG> <SEQ_NAME> ours
 ```
 
-Example:
+Live `viser` debug run instead of `headless=True`:
 
 ```bash
-bash run_bridged_train.sh bridge0318 40_indoor_walk_big_circle ours
+cd MotionTracking
+MT_VISER_PORT=8080 bash run_bridged_train.sh <DATE_TAG> <SEQ_NAME> ours headless=False num_envs=1 batch_size=8 visualize_markers=False
 ```
 
-To inspect the exact Hydra command without starting training:
-
-```bash
-PRINT_ONLY=1 bash run_bridged_train.sh bridge0318 40_indoor_walk_big_circle ours
-```
+Use the second command for visualization/debug. Keep the first command for the normal large-batch recipe.
 
 ## 4. Evaluate
 
-Use the same bridged motion and scene layout with your checkpoint:
+Headless evaluation:
 
 ```bash
-bash run_bridged_eval.sh <DATE_TAG> <SEQ_NAME> <METHOD> /abs/path/to/last.ckpt
+cd MotionTracking
+bash run_bridged_eval.sh <DATE_TAG> <SEQ_NAME> ours /abs/path/to/last.ckpt
 ```
 
-Dry-run only:
+`viser` evaluation:
 
 ```bash
-PRINT_ONLY=1 bash run_bridged_eval.sh bridge0318 40_indoor_walk_big_circle ours /abs/path/to/last.ckpt
+cd MotionTracking
+MT_VISER_PORT=8081 bash run_bridged_eval_viser.sh <DATE_TAG> <SEQ_NAME> ours /abs/path/to/last.ckpt
 ```
 
-## 5. Robot Viser
-
-For robot playback from exported rigid-body recordings:
+## 5. Export SMPL Parameters To File
 
 ```bash
-bash run_motiontracking_robot_viser.sh /abs/path/to/record_dir --port 8080
+cd MotionTracking
+bash run_bridged_export_motion.sh <DATE_TAG> <SEQ_NAME> ours /abs/path/to/last.ckpt
 ```
 
-## 6. Notes
-
-- Do not run `pip install MotionTracking`. The current `setup.py` pins
-  `torch==2.0.1`, which breaks the validated Isaac Gym + CUDA 12.4 stack.
-- The bridge uses `hmr/human_motion.npz`, not the raw scene NPZ.
-- During motion conversion, the bridge creates a temporary `data/smpl` view and
-  falls back to `SMPL_NEUTRAL.pkl` when `SMPL_FEMALE.pkl` is absent. It does not
-  modify the repository assets.
-- The train/eval wrappers automatically prepare `MotionTracking/data/smpl` from
-  `../prep/data/smpl` using symlinks, and they also create a fallback
-  `SMPL_FEMALE.pkl` symlink when only neutral or male models are available.
-
-## 7. Validated Example
-
-The following sequence was successfully bridged into MotionTracking:
+Default output:
 
 ```text
-motion_data/bridge0318/40_indoor_walk_big_circle_ours.npy
-motion_tracking/data/assets/urdf/bridge0318/40_indoor_walk_big_circle/ours/ours.urdf
+results/export_motion/<DATE_TAG>_<SEQ_NAME>_ours/000/trajectory_pose_aa_0.pkl
+```
+
+That file contains:
+
+- `pose`
+- `trans`
+- `shape`
+- `gender`
+
+## 6. Replay Exported Robot Motion
+
+```bash
+cd MotionTracking
+bash run_motiontracking_robot_viser.sh /abs/path/to/record_dir --port 8080
 ```
