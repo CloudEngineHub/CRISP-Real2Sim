@@ -24,11 +24,7 @@ Default environment names in this repo:
 - `crisp_contact`
 - `crisp_rl`
 
-Optional demo shortcut:
-
-```bash
-bash one_command_crisp_video_test.sh
-```
+Optional demo shortcut: [`one_command_crisp_video_test.sh`](one_command_crisp_video_test.sh)
 
 ### If You Need More Control
 
