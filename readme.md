@@ -137,14 +137,28 @@ results/output/scene/wall-kicking-envtest-20260317/gv/scene_mesh_sqs/scene_mesh_
 
 ## 4. Contact Hallucination (Optional)
 
+This step uses a separate environment because its dependency stack conflicts
+with the main CRISP and MotionTracking environments.
+
 ```bash
+bash setup_contact_predictor_env.sh crisp_contact
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate crisp_contact
 cd prep/Contact-Predictor
+bash fetch_data.sh hcontact-wScene
+cd ../..
+bash scripts/0_interactvlm.sh /abs/path/to/data/demo/wall-kicking stairs
 ```
 
-See [prep/Contact-Predictor/README.md](prep/Contact-Predictor/README.md).
+Pass the sequence root without the `_img` suffix. The second argument is the
+object name used in the contact prompt.
 
-This component requires a separate environment because its dependency stack
-conflicts with the main CRISP and MotionTracking environments.
+Outputs are written to:
+
+```text
+results/init/contacts/<camera>/*.npz
+results/init/contact_vis/<camera>/*_vis.jpg
+```
 
 ---
 
