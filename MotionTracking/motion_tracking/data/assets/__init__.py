@@ -1,0 +1,1 @@
+"""MotionTracking asset metadata helpers."""

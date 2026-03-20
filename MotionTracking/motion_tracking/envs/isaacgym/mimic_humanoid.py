@@ -42,6 +42,7 @@ class MimicHumanoid(BaseMimic, DiscHumanoid):
         # Viser state (initialize early so robot can be visualized even without triangle mesh)
         self._viser = None
         self._viser_ok = False
+        self._viser_port = int(os.environ.get("MT_VISER_PORT", "8080"))
         self._tm_viz_built = False
         self._robot_vis = None
         if self.save_state_path is not None:
@@ -58,10 +59,10 @@ class MimicHumanoid(BaseMimic, DiscHumanoid):
             self.use_viser = True
         if getattr(self, "use_viser", False) and self._viser is None:
             try:
-                self._viser = ViserHelper(port=8080)
+                self._viser = ViserHelper(port=self._viser_port)
                 self._viser_ok = self._viser.ok()
                 if self._viser_ok:
-                    print(f"[Viser] Server started (port=8080), triangle_mesh={self._use_triangle_mesh}")
+                    print(f"[Viser] Server started (port={self._viser_port}), triangle_mesh={self._use_triangle_mesh}")
                     add_ground_grid(self._viser)
             except Exception as _e:
                 print(f"[Viser] Failed to start server: {_e}")
@@ -305,7 +306,7 @@ class MimicHumanoid(BaseMimic, DiscHumanoid):
                 if getattr(self, "use_viser", False):
                     try:
                         if self._viser is None:
-                            self._viser = ViserHelper(port=8080)
+                            self._viser = ViserHelper(port=self._viser_port)
                             self._viser_ok = self._viser.ok()
                         if self._viser_ok and not self._tm_viz_built:
                             base_verts = self._scene_vertices.astype(np.float32)

@@ -2,6 +2,7 @@ import torch
 from torch import Tensor
 import numpy as np
 from motion_tracking.utils.motion_lib import MotionLib
+from motion_tracking.utils.foothold_reward import FootholdRewardHelper
 
 import math
 import time
@@ -95,6 +96,26 @@ class BaseMimic(MimicHumanoid):
         self.respawned_on_flat = torch.zeros(
             self.num_envs, dtype=torch.bool, device=self.device
         )
+
+        self.foothold_helper = None
+        self.foothold_body_ids = None
+        foothold_metadata_path = getattr(self.config, "foothold_metadata_path", None)
+        if foothold_metadata_path:
+            try:
+                self.foothold_helper = FootholdRewardHelper(foothold_metadata_path, self.device)
+                contact_body_names = list(getattr(self.config, "contact_bodies", []))
+                foothold_names = [name for name in contact_body_names if ("Toe" in name or "Foot" in name)]
+                if len(foothold_names) == 0:
+                    foothold_names = contact_body_names
+                if len(foothold_names) > 0:
+                    self.foothold_body_ids = self.build_body_ids_tensor(foothold_names)
+                    self.foothold_body_names = foothold_names
+                else:
+                    print("[FootholdReward] No contact body names available; disabling foothold reward.")
+                    self.foothold_helper = None
+            except Exception as err:
+                print(f"[FootholdReward] Failed to initialize from {foothold_metadata_path}: {err}")
+                self.foothold_helper = None
 
     def setup_dynamic_sampling(self):
         num_buckets_list = []
@@ -542,6 +563,7 @@ class BaseMimic(MimicHumanoid):
         ref_kb = self.process_kb(ref_gt, ref_gr)
 
         gt, gr, gv, gav = self.get_bodies_state()
+        sim_gt = gt.clone()
         # first remove height based on current position
         env_global_positions = self.convert_to_global_coords(gt[:, 0, :2], self.env_offsets[..., :2])
         gt[:, :, -1:] -= self.get_ground_heights_below_base(env_global_positions).view(self.num_envs, 1, 1)
@@ -615,6 +637,23 @@ class BaseMimic(MimicHumanoid):
             pow_rew = - power
 
             rew_dict["pow_rew"] = pow_rew
+
+        if self.foothold_helper is not None and self.foothold_body_ids is not None:
+            foothold_positions = sim_gt[:, self.foothold_body_ids, :]
+            foothold_forces = current_contact_forces[:, self.foothold_body_ids, :]
+            contact_mask = foothold_forces.norm(dim=-1) > self.config.foothold_contact_force_thresh
+            foothold_terms = self.foothold_helper.aggregate_contact_reward(
+                foothold_positions,
+                contact_mask,
+                core_bonus=self.config.foothold_core_bonus,
+                edge_penalty_scale=self.config.foothold_edge_penalty,
+                miss_penalty_scale=self.config.foothold_miss_penalty,
+            )
+            rew_dict["foothold_rew"] = foothold_terms["foothold_rew"]
+            self.log_dict["raw/foothold_core_term_mean"] = foothold_terms["foothold_core_term"].mean()
+            self.log_dict["raw/foothold_edge_term_mean"] = foothold_terms["foothold_edge_term"].mean()
+            self.log_dict["raw/foothold_miss_term_mean"] = foothold_terms["foothold_miss_term"].mean()
+            self.log_dict["raw/foothold_contact_frac_mean"] = foothold_terms["foothold_contact_frac"].mean()
 
         self.last_scaled_rewards: Dict[str, Tensor] = {
             k: v * getattr(self.config, f"{k}_w") for k, v in rew_dict.items()

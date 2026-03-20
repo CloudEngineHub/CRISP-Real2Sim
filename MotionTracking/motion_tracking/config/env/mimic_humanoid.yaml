@@ -43,6 +43,7 @@ env_params:
   rh_rew_w: ${rh_rew_w}
   kbf_rew_w: ${kbf_rew_w}
   pow_rew_w: ${pow_rew_w}
+  foothold_rew_w: ${foothold_rew_w}
 
   dynamic_sample: ${dynamic_sample}
   dynamic_weight_criteria: ${dynamic_weight_criteria}
@@ -79,6 +80,11 @@ env_params:
   force_point_cloud_obs: ${force_point_cloud_obs}
   point_sample_radius: ${point_sample_radius}
   point_sample_random: ${point_sample_random}
+  foothold_metadata_path: ${foothold_metadata_path}
+  foothold_contact_force_thresh: ${foothold_contact_force_thresh}
+  foothold_core_bonus: ${foothold_core_bonus}
+  foothold_edge_penalty: ${foothold_edge_penalty}
+  foothold_miss_penalty: ${foothold_miss_penalty}
 
 
 # Defaults
@@ -87,3 +93,9 @@ pos_rel_to_data: False
 force_point_cloud_obs: False
 point_sample_radius: 0.0
 point_sample_random: False
+foothold_metadata_path: null
+foothold_rew_w: 0.0
+foothold_contact_force_thresh: 1.0
+foothold_core_bonus: 1.0
+foothold_edge_penalty: 1.0
+foothold_miss_penalty: 1.0

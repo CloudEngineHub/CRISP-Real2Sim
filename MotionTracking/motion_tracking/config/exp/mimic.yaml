@@ -164,6 +164,7 @@ dv_rew_w: 0.15
 rh_rew_w: 0.1
 kbf_rew_w: 0.0
 pow_rew_w: 0.0002
+foothold_rew_w: 0.0
 
 gt_rew_c: -1  # -0.01
 rt_rew_c: -30
@@ -177,6 +178,11 @@ lr_rew_c: -0.2
 dv_rew_c: -0.002
 rh_rew_c: -100
 kbf_rew_c: -0.01
+foothold_metadata_path: null
+foothold_contact_force_thresh: 1.0
+foothold_core_bonus: 1.0
+foothold_edge_penalty: 1.0
+foothold_miss_penalty: 1.0
 
 dynamic_sample: False
 dynamic_weight_criteria: reward
