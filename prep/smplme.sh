@@ -130,7 +130,7 @@ download_with_auth "smpl" "SMPL_python_v.1.1.0.zip" "./data/smpl/smpl.zip" "SMPL
 unzip -o data/smpl/smpl.zip -d data/smpl
 require_dir "data/smpl/SMPL_python_v.1.1.0/smpl/models" "Extracted SMPL model directory"
 
-cp data/smpl/SMPL_python_v.1.1.0/smpl/models/basicModel_f_lbs_10_207_0_v1.1.0.pkl \
+cp data/smpl/SMPL_python_v.1.1.0/smpl/models/basicmodel_f_lbs_10_207_0_v1.1.0.pkl \
    data/smpl/SMPL_FEMALE.pkl
 
 cp data/smpl/SMPL_python_v.1.1.0/smpl/models/basicmodel_m_lbs_10_207_0_v1.1.0.pkl \
@@ -139,7 +139,7 @@ cp data/smpl/SMPL_python_v.1.1.0/smpl/models/basicmodel_m_lbs_10_207_0_v1.1.0.pk
 cp data/smpl/SMPL_python_v.1.1.0/smpl/models/basicmodel_neutral_lbs_10_207_0_v1.1.0.pkl \
    data/smpl/SMPL_NEUTRAL.pkl
 
-cp data/smpl/SMPL_python_v.1.1.0/smpl/models/basicModel_f_lbs_10_207_0_v1.1.0.pkl \
+cp data/smpl/SMPL_python_v.1.1.0/smpl/models/basicmodel_f_lbs_10_207_0_v1.1.0.pkl \
    HMR/inputs/checkpoints/body_models/smpl/SMPL_FEMALE.pkl
 
 cp data/smpl/SMPL_python_v.1.1.0/smpl/models/basicmodel_m_lbs_10_207_0_v1.1.0.pkl \
@@ -147,6 +147,13 @@ cp data/smpl/SMPL_python_v.1.1.0/smpl/models/basicmodel_m_lbs_10_207_0_v1.1.0.pk
 
 cp data/smpl/SMPL_python_v.1.1.0/smpl/models/basicmodel_neutral_lbs_10_207_0_v1.1.0.pkl \
    HMR/inputs/checkpoints/body_models/smpl/SMPL_NEUTRAL.pkl
+
+require_file "data/smpl/SMPL_FEMALE.pkl" "SMPL female model"
+require_file "data/smpl/SMPL_MALE.pkl" "SMPL male model"
+require_file "data/smpl/SMPL_NEUTRAL.pkl" "SMPL neutral model"
+require_file "HMR/inputs/checkpoints/body_models/smpl/SMPL_FEMALE.pkl" "HMR SMPL female model"
+require_file "HMR/inputs/checkpoints/body_models/smpl/SMPL_MALE.pkl" "HMR SMPL male model"
+require_file "HMR/inputs/checkpoints/body_models/smpl/SMPL_NEUTRAL.pkl" "HMR SMPL neutral model"
 
 download_with_auth "smplx" "models_smplx_v1_1.zip" "./data/smplx/smplx.zip" "SMPL-X"
 unzip -o data/smplx/smplx.zip -d data/smplx
@@ -160,5 +167,9 @@ cp data/smplx/models/smplx/SMPLX_MALE.npz \
 
 cp data/smplx/models/smplx/SMPLX_NEUTRAL.npz \
    HMR/inputs/checkpoints/body_models/smplx/SMPLX_NEUTRAL.npz
+
+require_file "HMR/inputs/checkpoints/body_models/smplx/SMPLX_FEMALE.npz" "HMR SMPL-X female model"
+require_file "HMR/inputs/checkpoints/body_models/smplx/SMPLX_MALE.npz" "HMR SMPL-X male model"
+require_file "HMR/inputs/checkpoints/body_models/smplx/SMPLX_NEUTRAL.npz" "HMR SMPL-X neutral model"
 
 echo "SMPL and SMPL-X models downloaded successfully."
