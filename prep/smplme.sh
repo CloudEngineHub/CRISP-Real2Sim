@@ -1,41 +1,73 @@
-#!/bin/bash
-urle () { [[ "${1}" ]] || return 1; local LANG=C i x; for (( i = 0; i < ${#1}; i++ )); do x="${1:i:1}"; [[ "${x}" == [a-zA-Z0-9.~-] ]] && echo -n "${x}" || printf '%%%02X' "'${x}"; done; echo; }
-# SMPL Male and Female model
-mkdir -p data/smpl
-mkdir -p data/smplx
-echo -e "\nYou need to register at https://smpl.is.tue.mpg.de"
-read -p "Username (SMPL):" username
-read -p "Password (SMPL):" password
-username=$(urle $username)
-password=$(urle $password)
-mkdir -p HMR/inputs/checkpoints/body_models
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+DATA_DIR="$SCRIPT_DIR/data"
+SMPL_DIR="$DATA_DIR/smpl"
+SMPLX_DIR="$DATA_DIR/smplx"
+SMPLIFY_EXTRACT_DIR="$SMPL_DIR/smplify"
+SMPL_ZIP="$DATA_DIR/smpl.zip"
+SMPLIFY_ZIP="$DATA_DIR/smplify.zip"
+SMPLX_ZIP="$DATA_DIR/smplx.zip"
+
+mkdir -p "$SMPL_DIR"
+mkdir -p "$SMPLX_DIR"
 mkdir -p HMR/inputs/checkpoints/body_models/smpl
 mkdir -p HMR/inputs/checkpoints/body_models/smplx
 
+download_zip_if_missing() {
+    local zip_path="$1"
+    local url="$2"
+    local label="$3"
 
-wget --post-data "username=$username&password=$password" 'https://download.is.tue.mpg.de/download.php?domain=smpl&sfile=SMPL_python_v.1.0.0.zip' -O './data/smpl/smpl.zip' --no-check-certificate --continue
-unzip data/smpl/smpl.zip -d data/smpl
-cp data/smpl/smpl/models/basicModel_f_lbs_10_207_0_v1.0.0.pkl \
-   data/smpl/SMPL_FEMALE.pkl
+    if [[ -f "$zip_path" ]]; then
+        echo "Using existing $label zip: $zip_path"
+        return 0
+    fi
 
-cp data/smpl/smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl \
-   data/smpl/SMPL_MALE.pkl
+    USERNAME="${SMPL_USERNAME:-}"
+    PASSWORD="${SMPL_PASSWORD:-}"
 
-cp data/smpl/smpl/models/basicModel_f_lbs_10_207_0_v1.0.0.pkl \
-   HMR/inputs/checkpoints/body_models/smpl/SMPL_FEMALE.pkl
+    if [[ -z "$USERNAME" ]]; then
+        echo -e "\nYou need to register at https://smpl.is.tue.mpg.de"
+        read -r -p "Username (SMPL):" USERNAME
+    fi
 
-cp data/smpl/smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl \
-   HMR/inputs/checkpoints/body_models/smpl/SMPL_MALE.pkl
+    if [[ -z "$PASSWORD" ]]; then
+        read -r -s -p "Password (SMPL):" PASSWORD
+        echo
+    fi
 
+    wget --post-data "username=$USERNAME&password=$PASSWORD" "$url" -O "$zip_path" --no-check-certificate --continue
+}
 
-wget --post-data "username=$username&password=$password" "https://download.is.tue.mpg.de/download.php?domain=smplx&sfile=models_smplx_v1_1.zip" -O './data/smplx/smplx.zip' --no-check-certificate --continue
-unzip data/smplx/smplx.zip -d data/smplx
+download_zip_if_missing "$SMPL_ZIP" 'https://download.is.tue.mpg.de/download.php?domain=smpl&sfile=SMPL_python_v.1.0.0.zip' "SMPL"
+download_zip_if_missing "$SMPLIFY_ZIP" 'https://download.is.tue.mpg.de/download.php?domain=smplify&resume=1&sfile=mpips_smplify_public_v2.zip' "SMPLify"
+download_zip_if_missing "$SMPLX_ZIP" 'https://download.is.tue.mpg.de/download.php?domain=smplx&sfile=models_smplx_v1_1.zip' "SMPL-X"
 
-cp data/smplx/models/smplx/SMPLX_FEMALE.npz \
-   HMR/inputs/checkpoints/body_models/smplx/SMPLX_FEMALE.npz
+unzip -tq "$SMPL_ZIP" >/dev/null
+unzip -tq "$SMPLIFY_ZIP" >/dev/null
+unzip -tq "$SMPLX_ZIP" >/dev/null
 
-cp data/smplx/models/smplx/SMPLX_MALE.npz \
-   HMR/inputs/checkpoints/body_models/smplx/SMPLX_MALE.npz
+rm -rf "$SMPL_DIR/smpl" "$SMPLIFY_EXTRACT_DIR" "$SMPLX_DIR/models"
 
-cp data/smplx/models/smplx/SMPLX_NEUTRAL.npz \
-   HMR/inputs/checkpoints/body_models/smplx/SMPLX_NEUTRAL.npz
+unzip -o "$SMPL_ZIP" -d "$SMPL_DIR"
+unzip -o "$SMPLIFY_ZIP" -d "$SMPLIFY_EXTRACT_DIR"
+unzip -o "$SMPLX_ZIP" -d "$SMPLX_DIR"
+
+cp "$SMPL_DIR/smpl/models/basicModel_f_lbs_10_207_0_v1.0.0.pkl" "$SMPL_DIR/SMPL_FEMALE.pkl"
+cp "$SMPL_DIR/smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl" "$SMPL_DIR/SMPL_MALE.pkl"
+cp "$SMPL_DIR/smpl/models/basicModel_f_lbs_10_207_0_v1.0.0.pkl" HMR/inputs/checkpoints/body_models/smpl/SMPL_FEMALE.pkl
+cp "$SMPL_DIR/smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl" HMR/inputs/checkpoints/body_models/smpl/SMPL_MALE.pkl
+
+mv "$SMPLIFY_EXTRACT_DIR/smplify_public/code/models/basicModel_neutral_lbs_10_207_0_v1.0.0.pkl" "$SMPL_DIR/SMPL_NEUTRAL.pkl"
+cp "$SMPL_DIR/SMPL_NEUTRAL.pkl" HMR/inputs/checkpoints/body_models/smpl/SMPL_NEUTRAL.pkl
+rm -rf "$SMPLIFY_EXTRACT_DIR"
+
+cp "$SMPLX_DIR/models/smplx/SMPLX_FEMALE.npz" HMR/inputs/checkpoints/body_models/smplx/SMPLX_FEMALE.npz
+cp "$SMPLX_DIR/models/smplx/SMPLX_MALE.npz" HMR/inputs/checkpoints/body_models/smplx/SMPLX_MALE.npz
+cp "$SMPLX_DIR/models/smplx/SMPLX_NEUTRAL.npz" HMR/inputs/checkpoints/body_models/smplx/SMPLX_NEUTRAL.npz
+
+echo "SMPL / SMPLify / SMPL-X zip files staged successfully."
