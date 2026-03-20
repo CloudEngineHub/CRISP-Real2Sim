@@ -75,7 +75,20 @@ download_with_auth() {
             "$DOWNLOAD_URL?domain=$domain&sfile=$sfile"
     )"
 
-    require_file "$out_path" "$label download"
+    if [[ ! -s "$out_path" ]]; then
+        if [[ "$http_code" == "401" ]]; then
+            echo "$label download returned 401 Unauthorized." >&2
+            echo "The username/password was not accepted by the SMPL download server." >&2
+        elif [[ "$http_code" == "403" ]]; then
+            echo "$label download returned 403 Forbidden and no file body." >&2
+            echo "This account can likely browse the site, but the direct download request is being rejected." >&2
+        else
+            echo "$label download produced an empty file." >&2
+            echo "HTTP status: $http_code" >&2
+        fi
+        rm -f "$headers_file"
+        exit 1
+    fi
 
     if ! is_zip_file "$out_path"; then
         if [[ "$http_code" == "401" ]] || grep -qi "Username/Password wrong" "$out_path"; then
