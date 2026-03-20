@@ -14,39 +14,30 @@
 ```bash
 git clone --recursive https://github.com/Z1hanW/CRISP-Real2Sim.git
 cd CRISP-Real2Sim
-```
-
-### One-Command Setup And Test
-
-```bash
 bash one_command_crisp_video_test.sh
 ```
 
-This is the recommended entrypoint for the CRISP video pipeline. It creates or
-reuses a dedicated conda environment named `crisp_video_onecmd`, fetches the
-demo-side assets needed by the wrapper, and runs the demo pipeline in one
-command. It does not modify the existing `crisp` environment.
+This is the recommended entrypoint. It creates or reuses a separate conda
+environment, fetches the demo-side assets needed by the wrapper, and runs the
+demo pipeline in one command.
 
-To use a different environment name or your own data root:
+If that is enough, stop here.
+
+### If You Need More Control
+
+Use a custom environment name or your own data root:
 
 ```bash
 bash one_command_crisp_video_test.sh my_crisp_video_env /abs/path/to/data_split_root
 ```
 
-The second argument can be either a custom root or `--demo`.
-
-### Split Setup And Run (Advanced)
-
-If you want to install the environment first and keep assets separate, use the
-split helpers below. This setup path validates the core CRISP video pipeline
-environment only and intentionally excludes `Contact-Predictor` and
-`MotionTracking`.
+Install only the CRISP video environment:
 
 ```bash
 bash setup_crisp_video_env.sh crisp_video_test
 ```
 
-To validate the installed environment:
+Validate it:
 
 ```bash
 source ~/miniconda3/etc/profile.d/conda.sh
@@ -54,30 +45,16 @@ conda activate crisp_video_test
 bash validate_crisp_video_env.sh
 ```
 
-If you also want setup to fetch the demo checkpoints and torch.hub caches:
+Install and also fetch demo-side assets:
 
 ```bash
 bash setup_crisp_video_env.sh crisp_video_test --with-assets
 ```
 
-If you already have your own input split, or you have already fetched assets:
+Run on an existing data root:
 
 ```bash
 bash run_crisp_video.sh /abs/path/to/data_split_root
-```
-
-### Dependency Manifest (Advanced)
-
-The bulk pip dependency set used by the setup script is consolidated in:
-
-```text
-requirements-crisp-video.txt
-```
-
-The environment smoke validator is:
-
-```bash
-bash validate_crisp_video_env.sh
 ```
 
 ---
