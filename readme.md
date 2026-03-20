@@ -14,32 +14,23 @@
 ```bash
 git clone --recursive https://github.com/Z1hanW/CRISP-Real2Sim.git
 cd CRISP-Real2Sim
-bash setup_crisp_video_env.sh crisp
+bash setup_crisp.sh
 conda activate crisp
+```
+
+Optional check:
+
+```bash
 bash validate_crisp_video_env.sh
 ```
 
-Default environment names in this repo:
-- `crisp`
-- `crisp_contact`
-- `crisp_rl`
+Optional demo shortcut: [`run_demo.sh`](run_demo.sh)
 
-Optional demo shortcut: [`one_command_crisp_video_test.sh`](one_command_crisp_video_test.sh)
-
-### If You Need More Control
-
-Use a custom environment name:
+If you want a different env name:
 
 ```bash
-bash setup_crisp_video_env.sh my_crisp_env
+bash setup_crisp.sh my_crisp_env
 conda activate my_crisp_env
-bash validate_crisp_video_env.sh
-```
-
-Run the one-command demo wrapper with a custom environment or your own data root:
-
-```bash
-bash one_command_crisp_video_test.sh my_crisp_env /abs/path/to/data_split_root
 ```
 
 ---
@@ -54,9 +45,11 @@ bash one_command_crisp_video_test.sh my_crisp_env /abs/path/to/data_split_root
 cd prep
 bash smplme.sh
 cd ..
+bash fetch_crisp_assets.sh
 ```
 
-   - The script prompts for your official SMPL credentials and populates the HMR body-model paths used by this repo.
+   - `smplme.sh` fills the SMPL / SMPL-X body-model paths.
+   - `fetch_crisp_assets.sh` pulls the demo checkpoints and the extra neutral SMPL file used by HMR.
    - If the upstream download flow fails, place the files manually using the structure below.
 
 ```text
@@ -66,13 +59,7 @@ prep/data/
     └── smplx/SMPLX_{GENDER}.pkl or SMPLX_{GENDER}.npz
 ```
 
-2. **Demo checkpoints and torch.hub caches** (optional, for the demo wrapper)
-
-```bash
-bash setup_crisp_video_env.sh crisp --with-assets
-```
-
-3. **Demo videos and metadata**
+2. **Demo videos and metadata**
 
 ```bash
 mkdir -p data
@@ -141,7 +128,7 @@ This step uses a separate environment because its dependency stack conflicts
 with the main CRISP and MotionTracking environments.
 
 ```bash
-bash setup_contact_predictor_env.sh crisp_contact
+bash setup_crisp_contact.sh
 conda activate crisp_contact
 cd prep/Contact-Predictor
 bash fetch_data.sh hcontact-wScene

@@ -15,8 +15,13 @@ results/output/post_scene/<SEQ>/<HMR_TYPE>/
 From the repository root:
 
 ```bash
-bash setup_motiontracking_viser_env.sh crisp_rl
+bash setup_crisp_rl.sh
 conda activate crisp_rl
+```
+
+Optional check:
+
+```bash
 bash validate_motiontracking_viser_env.sh
 ```
 
