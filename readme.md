@@ -182,10 +182,15 @@ Common flags (see script header for the full list):
 
 ## 5. Train Your Agent
 
+```bash
+cd MotionTracking
+```
+
 See [MotionTracking/README.md](MotionTracking/README.md).
 
 That guide covers environment setup, CRISP-to-RL transfer, training, `viser`
-debug runs, evaluation, and SMPL parameter export.
+debug runs, evaluation, and SMPL parameter export. The commands there assume
+your working directory is already `MotionTracking`.
 
 ---
 

@@ -21,12 +21,17 @@ conda activate motiontracking_viser
 bash validate_motiontracking_viser_env.sh
 ```
 
+After that, assume the working directory is:
+
+```bash
+cd MotionTracking
+```
+
 ## 2. Transfer CRISP Output Into The RL Layout
 
 Full bridge into `MotionTracking/motion_data` and `MotionTracking/motion_tracking/data/assets/urdf`:
 
 ```bash
-cd MotionTracking
 bash bridge_crisp_sequence.sh <SEQ_NAME> <DATE_TAG> ours gv
 ```
 
@@ -41,14 +46,12 @@ python vis_scripts/viser_m/process_to_rl.py --seq-names <SEQ_NAME> --date <DATE_
 Default training:
 
 ```bash
-cd MotionTracking
 bash run_bridged_train.sh <DATE_TAG> <SEQ_NAME> ours
 ```
 
 Live `viser` debug run instead of `headless=True`:
 
 ```bash
-cd MotionTracking
 MT_VISER_PORT=8080 bash run_bridged_train.sh <DATE_TAG> <SEQ_NAME> ours headless=False num_envs=1 batch_size=8 visualize_markers=False
 ```
 
@@ -59,21 +62,18 @@ Use the second command for visualization/debug. Keep the first command for the n
 Headless evaluation:
 
 ```bash
-cd MotionTracking
 bash run_bridged_eval.sh <DATE_TAG> <SEQ_NAME> ours /abs/path/to/last.ckpt
 ```
 
 `viser` evaluation:
 
 ```bash
-cd MotionTracking
 MT_VISER_PORT=8081 bash run_bridged_eval_viser.sh <DATE_TAG> <SEQ_NAME> ours /abs/path/to/last.ckpt
 ```
 
 ## 5. Export SMPL Parameters To File
 
 ```bash
-cd MotionTracking
 bash run_bridged_export_motion.sh <DATE_TAG> <SEQ_NAME> ours /abs/path/to/last.ckpt
 ```
 
@@ -93,6 +93,5 @@ That file contains:
 ## 6. Replay Exported Robot Motion
 
 ```bash
-cd MotionTracking
 bash run_motiontracking_robot_viser.sh /abs/path/to/record_dir --port 8080
 ```
