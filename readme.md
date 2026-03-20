@@ -14,51 +14,36 @@
 ```bash
 git clone --recursive https://github.com/Z1hanW/CRISP-Real2Sim.git
 cd CRISP-Real2Sim
-bash one_command_crisp_video_test.sh
+bash setup_crisp_video_env.sh crisp
+conda activate crisp
+bash validate_crisp_video_env.sh
 ```
-
-This is the recommended entrypoint. It creates or reuses a separate conda
-environment, fetches the demo-side assets needed by the wrapper, and runs the
-demo pipeline in one command.
 
 Default environment names in this repo:
 - `crisp`
 - `crisp_contact`
 - `crisp_rl`
 
-If that is enough, stop here.
+Optional demo shortcut:
+
+```bash
+bash one_command_crisp_video_test.sh
+```
 
 ### If You Need More Control
 
-Use a custom environment name or your own data root:
+Use a custom environment name:
 
 ```bash
-bash one_command_crisp_video_test.sh my_crisp_env /abs/path/to/data_split_root
-```
-
-Install only the CRISP video environment:
-
-```bash
-bash setup_crisp_video_env.sh crisp
-```
-
-Validate it:
-
-```bash
-conda activate crisp
+bash setup_crisp_video_env.sh my_crisp_env
+conda activate my_crisp_env
 bash validate_crisp_video_env.sh
 ```
 
-Install and also fetch demo-side assets:
+Run the one-command demo wrapper with a custom environment or your own data root:
 
 ```bash
-bash setup_crisp_video_env.sh crisp --with-assets
-```
-
-Run on an existing data root:
-
-```bash
-bash run_crisp_video.sh /abs/path/to/data_split_root
+bash one_command_crisp_video_test.sh my_crisp_env /abs/path/to/data_split_root
 ```
 
 ---
@@ -69,21 +54,27 @@ bash run_crisp_video.sh /abs/path/to/data_split_root
    - Register at [SMPL](https://smpl.is.tue.mpg.de/) and [SMPL-X](https://smpl-x.is.tue.mpg.de/).
    - For a clean clone, place the downloaded files using the structure below.
 
-```
+```text
 prep/data/
 └── body_models/
     ├── smpl/SMPL_{GENDER}.pkl
     └── smplx/SMPLX_{GENDER}.pkl or SMPLX_{GENDER}.npz
 ```
 
-2. **Demo videos and metadata**
+2. **Demo checkpoints and torch.hub caches** (optional, for the demo wrapper)
+
+```bash
+bash setup_crisp_video_env.sh crisp --with-assets
+```
+
+3. **Demo videos and metadata**
 
 ```bash
 mkdir -p data
 gdown --folder "https://drive.google.com/drive/folders/1k712Oj9StmWXRzSeSMiHZc3LtvsVk2Rw" -O data
 ```
 
-> `gdown` is installed via `requirements.txt`. Use the `-O data` flag so Google Drive folders land under `CRISP-Real2Sim/data`.
+> `gdown` is installed in the `crisp` environment. Use the `-O data` flag so Google Drive folders land under `CRISP-Real2Sim/data`.
 
 ---
 
@@ -93,7 +84,7 @@ The wrapper and scripts expect your source sequences to live under either
 `*_videos` or `*_img` folders. Remove that suffix when you feed paths to the
 scripts.
 
-```
+```text
 data/
 ├── demo_videos/
 │   └── wall-kicking.mp4
