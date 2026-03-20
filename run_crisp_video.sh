@@ -34,7 +34,7 @@ if [[ "$ROOT_INPUT" == "--help" || "$ROOT_INPUT" == "-h" ]]; then
 fi
 
 if [[ "$ROOT_INPUT" == "--demo" ]]; then
-    DEMO_SRC="$REPO_ROOT/data/data_old/demo_videos/wall-kicking.mp4"
+    DEMO_SRC="$REPO_ROOT/data/demo_videos/wall-kicking.mp4"
     DEMO_ROOT="$REPO_ROOT/data/smoke"
     DEMO_DST="${DEMO_ROOT}_videos/wall-kicking-smoke.mp4"
 
@@ -45,7 +45,7 @@ if [[ "$ROOT_INPUT" == "--demo" ]]; then
     fi
 
     mkdir -p "${DEMO_ROOT}_videos"
-    ln -sfn ../data_old/demo_videos/wall-kicking.mp4 "$DEMO_DST"
+    ln -sfn ../demo_videos/wall-kicking.mp4 "$DEMO_DST"
     ROOT_DIR="$DEMO_ROOT"
 else
     ROOT_DIR="${ROOT_INPUT%/}"
