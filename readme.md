@@ -21,6 +21,11 @@ This is the recommended entrypoint. It creates or reuses a separate conda
 environment, fetches the demo-side assets needed by the wrapper, and runs the
 demo pipeline in one command.
 
+Default environment names in this repo:
+- `crisp`
+- `crisp_contact`
+- `crisp_rl`
+
 If that is enough, stop here.
 
 ### If You Need More Control
@@ -28,27 +33,26 @@ If that is enough, stop here.
 Use a custom environment name or your own data root:
 
 ```bash
-bash one_command_crisp_video_test.sh my_crisp_video_env /abs/path/to/data_split_root
+bash one_command_crisp_video_test.sh my_crisp_env /abs/path/to/data_split_root
 ```
 
 Install only the CRISP video environment:
 
 ```bash
-bash setup_crisp_video_env.sh crisp_video_test
+bash setup_crisp_video_env.sh crisp
 ```
 
 Validate it:
 
 ```bash
-source ~/miniconda3/etc/profile.d/conda.sh
-conda activate crisp_video_test
+conda activate crisp
 bash validate_crisp_video_env.sh
 ```
 
 Install and also fetch demo-side assets:
 
 ```bash
-bash setup_crisp_video_env.sh crisp_video_test --with-assets
+bash setup_crisp_video_env.sh crisp --with-assets
 ```
 
 Run on an existing data root:
@@ -142,7 +146,6 @@ with the main CRISP and MotionTracking environments.
 
 ```bash
 bash setup_contact_predictor_env.sh crisp_contact
-source ~/miniconda3/etc/profile.d/conda.sh
 conda activate crisp_contact
 cd prep/Contact-Predictor
 bash fetch_data.sh hcontact-wScene

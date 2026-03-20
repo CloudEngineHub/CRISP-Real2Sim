@@ -18,12 +18,11 @@ fi
 echo "[1/4] Creating conda env '$ENV_NAME'"
 CONDA_SOLVER=classic conda create -n "$ENV_NAME" python=3.10 -y
 
-CONDA_BASE="$(
-    python - <<'PY'
-from conda.base.context import context
-print(context.root_prefix)
-PY
-)"
+CONDA_BASE="$(conda info --base 2>/dev/null || true)"
+if [[ -z "$CONDA_BASE" || ! -d "$CONDA_BASE" ]]; then
+    echo "Failed to resolve conda base directory." >&2
+    exit 1
+fi
 ENV_PREFIX="${CONDA_BASE}/envs/${ENV_NAME}"
 PYTHON_BIN="$ENV_PREFIX/bin/python"
 PIP_BIN="$ENV_PREFIX/bin/pip"
@@ -49,7 +48,6 @@ cat <<EOF
 Environment ready.
 
 Next:
-  source ~/miniconda3/etc/profile.d/conda.sh
   conda activate $ENV_NAME
   cd "$CP_DIR"
   bash fetch_data.sh hcontact-wScene

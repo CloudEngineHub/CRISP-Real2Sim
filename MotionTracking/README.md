@@ -16,7 +16,6 @@ From the repository root:
 
 ```bash
 bash setup_motiontracking_viser_env.sh crisp_rl
-source ~/miniconda3/etc/profile.d/conda.sh
 conda activate crisp_rl
 bash validate_motiontracking_viser_env.sh
 ```

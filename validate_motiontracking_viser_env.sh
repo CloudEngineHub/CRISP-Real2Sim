@@ -21,10 +21,27 @@ if [[ -d "$CONDA_PREFIX/lib" ]]; then
     export LD_LIBRARY_PATH="$CONDA_PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
 
-echo "[1/4] MotionTracking smoke test"
+echo "[1/5] Isaac Gym source-binding check"
+"$PYTHON_BIN" - <<'PY'
+from importlib.util import find_spec
+from pathlib import Path
+
+spec = find_spec("isaacgym")
+if spec is None or spec.origin is None:
+    raise SystemExit("isaacgym package not found.")
+
+pkg_dir = Path(spec.origin).resolve().parent
+gymtorch_cpp = pkg_dir / "_bindings" / "src" / "gymtorch" / "gymtorch.cpp"
+if not gymtorch_cpp.is_file():
+    raise SystemExit(f"Missing Isaac Gym source binding: {gymtorch_cpp}")
+
+print(f"gymtorch_cpp={gymtorch_cpp}")
+PY
+
+echo "[2/5] MotionTracking smoke test"
 PYTHON_BIN="$PYTHON_BIN" bash "$MT_DIR/run_crisp_test.sh" --smoke-only
 
-echo "[2/4] robot-viser import and server smoke test"
+echo "[3/5] robot-viser import and server smoke test"
 "$PYTHON_BIN" - <<'PY'
 import tempfile
 from pathlib import Path
@@ -69,13 +86,13 @@ with tempfile.TemporaryDirectory(prefix="motiontracking-viser-") as tmp_dir:
         viser.server.stop()
 PY
 
-echo "[3/4] Visualizer CLI smoke test"
+echo "[4/5] Visualizer CLI smoke test"
 (
     cd "$MT_DIR"
     "$PYTHON_BIN" scripts/visualize_viser_robot.py --help >/dev/null
 )
 
-echo "[4/4] Synthetic playback smoke test"
+echo "[5/5] Synthetic playback smoke test"
 if ! command -v timeout >/dev/null 2>&1; then
     echo "timeout command is required for visualization validation." >&2
     exit 1

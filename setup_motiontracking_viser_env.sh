@@ -16,12 +16,11 @@ fi
 
 mkdir -p "$CACHE_ROOT"
 
-CONDA_BASE="$(
-    python - <<'PY'
-from conda.base.context import context
-print(context.root_prefix)
-PY
-)"
+CONDA_BASE="$(conda info --base 2>/dev/null || true)"
+if [[ -z "$CONDA_BASE" || ! -d "$CONDA_BASE" ]]; then
+    echo "Failed to resolve conda base directory." >&2
+    exit 1
+fi
 ENV_PREFIX="${CONDA_BASE}/envs/${ENV_NAME}"
 
 if [[ -x "${ENV_PREFIX}/bin/python" ]]; then
@@ -93,9 +92,14 @@ fi
 "$PIP_BIN" install --no-deps "$ISAACGYM_ROOT/isaacgym/python"
 
 ISAACGYM_PKG_DIR="$("$PYTHON_BIN" - <<'PY'
+from importlib.util import find_spec
 from pathlib import Path
-import isaacgym
-print(Path(isaacgym.__file__).resolve().parent)
+
+spec = find_spec("isaacgym")
+if spec is None or spec.origin is None:
+    raise SystemExit("isaacgym is installed but its package path could not be resolved.")
+
+print(Path(spec.origin).resolve().parent)
 PY
 )"
 ISAACGYM_SRC_DIR="$ISAACGYM_ROOT/isaacgym/python/isaacgym/_bindings/src"
