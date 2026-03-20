@@ -49,10 +49,16 @@ download_with_auth() {
     local label="$4"
     local headers_file
     local http_code
+    local curl_progress_flags=()
 
     headers_file="$(mktemp)"
+    if [[ -t 1 ]]; then
+        curl_progress_flags=(--progress-bar)
+    fi
+
+    echo "Downloading $label: $sfile"
     http_code="$(
-        curl -sS -L \
+        curl -L \
             --http1.1 \
             --connect-timeout 20 \
             --max-time 120 \
@@ -63,6 +69,7 @@ download_with_auth() {
             -D "$headers_file" \
             -o "$out_path" \
             -w '%{http_code}' \
+            "${curl_progress_flags[@]}" \
             --data-urlencode "username=$USERNAME" \
             --data-urlencode "password=$PASSWORD" \
             "$DOWNLOAD_URL?domain=$domain&sfile=$sfile"
@@ -91,6 +98,7 @@ download_with_auth() {
     fi
 
     unzip -tqq "$out_path" >/dev/null
+    echo "$label download finished: $out_path"
     rm -f "$headers_file"
 }
 
