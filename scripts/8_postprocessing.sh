@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 VISER_DIR="$REPO_ROOT/vis_scripts/viser_m"
-VIS_SCRIPT="$VISER_DIR/vis.sh"
+ROTATE_SQS_ONLY="$REPO_ROOT/scripts/rotate_scene_sqs_only.py"
 DATA_ROOT="$REPO_ROOT/data"
 
 if [[ $# -lt 1 ]]; then
@@ -40,8 +40,8 @@ if [[ -z "$DATA_PATH" ]]; then
   exit 1
 fi
 
-if [[ ! -x "$VIS_SCRIPT" ]]; then
-  echo "vis.sh not found or not executable at: $VIS_SCRIPT" >&2
+if [[ ! -f "$ROTATE_SQS_ONLY" ]]; then
+  echo "rotate_scene_sqs_only.py not found at: $ROTATE_SQS_ONLY" >&2
   exit 1
 fi
 
@@ -63,7 +63,7 @@ for seq_dir in "${seq_dirs[@]}"; do
   [[ -f "$results_file" ]] || continue
 
   logfile="${LOG_DIR}/${seq_name}.log"
-  HMR_TYPE="$HMR_TYPE" SAVE_MODE=on bash "$VIS_SCRIPT" "$seq_name" >"$logfile" 2>&1
+  python "$ROTATE_SQS_ONLY" --sequence-name "$seq_name" --hmr-type "$HMR_TYPE" >"$logfile" 2>&1
 done
 
 popd >/dev/null

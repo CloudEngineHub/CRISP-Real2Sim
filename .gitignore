@@ -86,6 +86,15 @@ datasets/
 *.hdf5
 *.pkl
 
+# ===== 必须跟随 MotionTracking 源码提交的内部模块 =====
+!MotionTracking/motion_tracking/agents/models/
+!MotionTracking/motion_tracking/agents/models/*.py
+!MotionTracking/motion_tracking/data/
+!MotionTracking/motion_tracking/data/assets/
+MotionTracking/motion_tracking/data/assets/**
+!MotionTracking/motion_tracking/data/assets/__init__.py
+!MotionTracking/motion_tracking/data/assets/skeleton_configs.py
+
 # ===== 编辑器、OS 文件 =====
 *.swp
 *.swo

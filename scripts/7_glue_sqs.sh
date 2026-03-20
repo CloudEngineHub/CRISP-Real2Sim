@@ -7,7 +7,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 echo $REPO_ROOT
 VISER_DIR="$REPO_ROOT/vis_scripts/viser_m"
 VIS_SCRIPT="$VISER_DIR/vis.sh"
-SCRIPT2="$VISER_DIR/rot.sh"
+SCRIPT3="$VISER_DIR/run_nksr.sh"
+BACKFILL_SCRIPT="$REPO_ROOT/scripts/backfill_sqs_params.py"
 
 DATA_ROOT="$REPO_ROOT/data"
 
@@ -33,6 +34,16 @@ SPLIT_INPUT="${1%/}"
 HMR_TYPE="${2:-gv}"
 LOG_DIR="${LOG_DIR:-/tmp/vis_megasam_logs}"
 mkdir -p "$LOG_DIR"
+
+RUN_NKSR_RAW="${RUN_NKSR:-off}"
+case "${RUN_NKSR_RAW,,}" in
+  on|true|1|yes|y) RUN_NKSR=1 ;;
+  off|false|0|no|n) RUN_NKSR=0 ;;
+  *)
+    echo "Invalid RUN_NKSR='$RUN_NKSR_RAW' (use on/off or true/false)" >&2
+    exit 2
+    ;;
+esac
 
 declare -a CANDIDATES=(
   "$SPLIT_INPUT"
@@ -62,6 +73,16 @@ if [[ ! -x "$VIS_SCRIPT" ]]; then
   exit 1
 fi
 
+if [[ ! -f "$BACKFILL_SCRIPT" ]]; then
+  echo "backfill_sqs_params.py not found at $BACKFILL_SCRIPT" >&2
+  exit 1
+fi
+
+if (( RUN_NKSR == 1 )) && [[ ! -f "$SCRIPT3" ]]; then
+  echo "run_nksr.sh not found at $SCRIPT3" >&2
+  exit 1
+fi
+
 pushd "$VISER_DIR" >/dev/null
 
 shopt -s nullglob
@@ -88,11 +109,19 @@ for seq_dir in "${seq_dirs[@]}"; do
   echo "[$(date +'%F %T')] Running scripts for ${seq_name} (log: $logfile)"
 
   {
-    echo "===== $(date +'%F %T') vis.sh ====="
-    HMR_TYPE="$HMR_TYPE" SAVE_MODE=on bash "$VIS_SCRIPT"  "$seq_name"
+    scene_mesh_dir="$REPO_ROOT/results/output/scene/${seq_name}/${HMR_TYPE}/scene_mesh_sqs"
+    if [[ -d "$scene_mesh_dir" && -f "$scene_mesh_dir/scene_mesh_sqs.obj" && -f "$scene_mesh_dir/scene_mesh_sqs.urdf" ]]; then
+      echo "===== $(date +'%F %T') backfill_sqs_params ====="
+      python "$BACKFILL_SCRIPT" --scene-root "$REPO_ROOT/results/output/scene/${seq_name}/${HMR_TYPE}"
+    else
+      echo "===== $(date +'%F %T') vis.sh ====="
+      HMR_TYPE="$HMR_TYPE" SAVE_MODE=on bash "$VIS_SCRIPT" "$seq_name"
+    fi
 
-    echo "===== $(date +'%F %T') script2 ====="
-    bash "$SCRIPT2"     "$seq_name"
+    if (( RUN_NKSR == 1 )); then
+      echo "===== $(date +'%F %T') nksr ====="
+      HMR_TYPE="$HMR_TYPE" bash "$SCRIPT3" "$seq_name"
+    fi
 
   } >"$logfile" 2>&1
 done

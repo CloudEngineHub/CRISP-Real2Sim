@@ -1,19 +1,129 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 
-################################################################################
-# 1) Make sure conda’s shell functions are available in this script:
-#    Option A: using the "conda shell.bash hook":
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+echo $REPO_ROOT
+VISER_DIR="$REPO_ROOT/vis_scripts/viser_m"
+VIS_SCRIPT="$VISER_DIR/vis.sh"
+SCRIPT2="$VISER_DIR/rot.sh"
+SCRIPT3="$VISER_DIR/run_nksr.sh"
 
-ROOT_DIR="$1"
-HMR_TYPE="gv"
+DATA_ROOT="$REPO_ROOT/data"
 
+usage() {
+  cat <<'EOF'
+Usage: sh 7_glue_sqs.sh <split_or_path> [hmr_type]
 
+Examples:
+  sh 7_glue_sqs.sh rebuttal gv
+  sh 7_glue_sqs.sh ../data/rebuttal_img
 
-bash 7_glue_sqs.sh "$ROOT_DIR" "$HMR_TYPE" 
-# bash 8_post_scene_process.sh "$ROOT_DIR" "$HMR_TYPE" 
-# sh 9_train_my_agent.sh "$ROOT_DIR"
+The script will invoke vis_scripts/viser_m/vis.sh with save mode enabled for
+each sequence directory inside the provided *_img split.
+EOF
+}
 
+if [[ $# -lt 1 ]]; then
+  usage >&2
+  exit 1
+fi
 
+SPLIT_INPUT="${1%/}"
+HMR_TYPE="${2:-gv}"
+LOG_DIR="${LOG_DIR:-/tmp/vis_megasam_logs}"
+mkdir -p "$LOG_DIR"
 
+RUN_NKSR_RAW="${RUN_NKSR:-off}"
+case "${RUN_NKSR_RAW,,}" in
+  on|true|1|yes|y) RUN_NKSR=1 ;;
+  off|false|0|no|n) RUN_NKSR=0 ;;
+  *)
+    echo "Invalid RUN_NKSR='$RUN_NKSR_RAW' (use on/off or true/false)" >&2
+    exit 2
+    ;;
+esac
 
+declare -a CANDIDATES=(
+  "$SPLIT_INPUT"
+  "${SPLIT_INPUT}_img"
+  "$REPO_ROOT/$SPLIT_INPUT"
+  "$REPO_ROOT/${SPLIT_INPUT}_img"
+  "$DATA_ROOT/$SPLIT_INPUT"
+  "$DATA_ROOT/${SPLIT_INPUT}_img"
+)
+
+DATA_PATH=""
+for candidate in "${CANDIDATES[@]}"; do
+  [[ -z "$candidate" ]] && continue
+  if [[ -d "$candidate" ]]; then
+    DATA_PATH="$(cd "$candidate" && pwd)"
+    break
+  fi
+done
+
+if [[ -z "$DATA_PATH" ]]; then
+  echo "Could not locate data directory for '$SPLIT_INPUT'." >&2
+  exit 1
+fi
+
+if [[ ! -x "$VIS_SCRIPT" ]]; then
+  echo "vis.sh not found at $VIS_SCRIPT" >&2
+  exit 1
+fi
+
+if (( RUN_NKSR == 1 )) && [[ ! -f "$SCRIPT3" ]]; then
+  echo "run_nksr.sh not found at $SCRIPT3" >&2
+  exit 1
+fi
+
+pushd "$VISER_DIR" >/dev/null
+
+shopt -s nullglob
+seq_dirs=("$DATA_PATH"/*/)
+shopt -u nullglob
+
+if (( ${#seq_dirs[@]} == 0 )); then
+  echo "No sequence folders found under $DATA_PATH" >&2
+  popd >/dev/null
+  exit 1
+fi
+
+echo "Found ${#seq_dirs[@]} sequences in $DATA_PATH. Logs -> $LOG_DIR"
+
+for seq_dir in "${seq_dirs[@]}"; do
+  seq_name="$(basename "${seq_dir%/}")"
+  results_file="$REPO_ROOT/results/output/scene/${seq_name}_${HMR_TYPE}_sgd_cvd_hr.npz"
+  if [[ ! -f "$results_file" ]]; then
+    echo "Skipping ${seq_name}: missing results file $results_file" >&2
+    continue
+  fi
+
+  logfile="${LOG_DIR}/${seq_name}.log"
+  echo "[$(date +'%F %T')] Running scripts for ${seq_name} (log: $logfile)"
+
+  {
+    if (( RUN_NKSR == 1 )); then
+      nksr_input_npz="$REPO_ROOT/results/output/scene/${seq_name}/${HMR_TYPE}/nksr_input/pointcloud_world.npz"
+      nksr_cache_pt="$VISER_DIR/cache/${seq_name}.pt"
+      if [[ ! -f "$nksr_input_npz" && ! -f "$nksr_cache_pt" ]]; then
+        echo "===== $(date +'%F %T') vis.sh (bootstrap nksr input) ====="
+        HMR_TYPE="$HMR_TYPE" SAVE_MODE=on bash "$VIS_SCRIPT" "$seq_name"
+      fi
+    fi
+
+    echo "===== $(date +'%F %T') script2 ====="
+    bash "$SCRIPT2"     "$seq_name"
+
+    if (( RUN_NKSR == 1 )); then
+      echo "===== $(date +'%F %T') nksr ====="
+      HMR_TYPE="$HMR_TYPE" bash "$SCRIPT3" "$seq_name"
+    fi
+
+  } >"$logfile" 2>&1
+done
+
+popd >/dev/null
+
+echo "All visualizations completed successfully."

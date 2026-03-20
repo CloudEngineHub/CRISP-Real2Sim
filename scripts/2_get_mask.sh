@@ -49,7 +49,8 @@ for i in "${!folders[@]}"; do
           python custom_mask.py \
             --seq "$seq" \
             --text_prompt "door" \
-            --video_dir "$DATA_PATH" &
+            --video_dir "$DATA_PATH" \
+            --save_dir "$SAVE_PATH" &
     fi
 
     if [[ "$DATA_PATH" == *box* ]]; then
@@ -58,7 +59,8 @@ for i in "${!folders[@]}"; do
           python custom_mask.py \
             --seq "$seq" \
             --text_prompt "box" \
-            --video_dir "$DATA_PATH" &
+            --video_dir "$DATA_PATH" \
+            --save_dir "$SAVE_PATH" &
     fi
 
 done

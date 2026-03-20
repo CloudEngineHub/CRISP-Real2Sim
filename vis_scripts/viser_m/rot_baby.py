@@ -258,6 +258,33 @@ def _rotate_vertices_rowvec(V: np.ndarray, R: np.ndarray) -> np.ndarray:
     return V @ R.T
 
 
+def rotate_sqs_params_rowvec(
+    params: np.ndarray,
+    R_align: np.ndarray,
+    t_shared: np.ndarray,
+) -> np.ndarray:
+    """Rotate SQ params with the same row-vector convention as the meshes."""
+    params = np.asarray(params, dtype=np.float32)
+    if params.ndim != 2 or params.shape[1] < 11:
+        raise ValueError(f"Expected SQ params with shape (N, 11+), got {params.shape}")
+
+    euler = torch.from_numpy(params[:, 5:8]).to(dtype=torch.float32)
+    R_old = transforms.euler_angles_to_matrix(euler, convention="ZYX").cpu().numpy().astype(np.float32)
+    R_new = (R_align[None, :, :] @ R_old).astype(np.float32)
+    euler_new = transforms.matrix_to_euler_angles(
+        torch.from_numpy(R_new),
+        convention="ZYX",
+    ).cpu().numpy().astype(np.float32)
+
+    transl_old = params[:, 8:11].astype(np.float32)
+    transl_new = transl_old @ R_align.T + t_shared[None, :]
+
+    rotated = params.copy()
+    rotated[:, 5:8] = euler_new
+    rotated[:, 8:11] = transl_new.astype(np.float32)
+    return rotated
+
+
 def rotate_scene_geometry_once_and_ground_trimesh(
     input_root: Path,
     output_root: Path,
@@ -319,6 +346,8 @@ def rotate_scene_geometry_once_and_ground_trimesh(
     pieces_src = input_root / "scene_mesh_sqs" / "pieces"
     if pieces_src.exists():
         pieces_dst = output_root / "scene_mesh_sqs" / "pieces"
+        if pieces_dst.exists():
+            shutil.rmtree(pieces_dst)
         pieces_dst.mkdir(parents=True, exist_ok=True)
         for mesh_path in sorted(pieces_src.glob("*.obj")):
             pm = _load_trimesh_obj(mesh_path)
@@ -326,6 +355,28 @@ def rotate_scene_geometry_once_and_ground_trimesh(
                 Vp = _rotate_vertices_rowvec(pm.vertices.view(np.ndarray), R_align)
                 pm.vertices = Vp + shared_translation[None, :]
             pm.export(pieces_dst / mesh_path.name)
+
+    params_src_candidates = [
+        input_root / "scene_mesh_sqs" / "sqs_params.npy",
+        input_root / "scene_mesh_sqs" / "sqs_params.npz",
+    ]
+    params_src = next((path for path in params_src_candidates if path.exists()), None)
+    if params_src is not None:
+        if params_src.suffix == ".npz":
+            payload = np.load(params_src, allow_pickle=True)
+            params = payload["params"]
+        else:
+            params = np.load(params_src, allow_pickle=True)
+        params_rot = rotate_sqs_params_rowvec(params, R_align.astype(np.float32), shared_translation.astype(np.float32))
+        params_dst_dir = output_root / "scene_mesh_sqs"
+        params_dst_dir.mkdir(parents=True, exist_ok=True)
+        np.save(params_dst_dir / "sqs_params.npy", params_rot.astype(np.float32))
+        np.savez_compressed(
+            params_dst_dir / "sqs_params.npz",
+            params=params_rot.astype(np.float32),
+            world_rotation=R_align.astype(np.float32),
+            shared_translation=shared_translation.astype(np.float32),
+        )
 
     return scene_mesh_written, shared_translation, scene_mesh_for_sdf
 
@@ -803,6 +854,59 @@ def correct_transl_after_rigid_transform_from_original(
     return tr_T_corrected.to(device=device, dtype=dtype), float(err)
 
 
+def apply_read_ours_floor_z_optimization(
+    smpl_model_cpu: SMPL,
+    body_pose_rotm: torch.Tensor,          # (T, 23, 3, 3)
+    global_orient_rotm: torch.Tensor,      # (T, 1, 3, 3)
+    betas: torch.Tensor,                   # (T,10) or (1,10)
+    transl: torch.Tensor,                  # (T,3)
+    lowest_percent: float = 0.01,
+    abs_threshold: float = 0.3,
+) -> Tuple[torch.Tensor, float, bool]:
+    """
+    Read-ours style global z optimization:
+      1) Forward SMPL and collect all joint z values.
+      2) Take the mean of the lowest `lowest_percent` z values.
+      3) If |z_mean_low| < abs_threshold, shift all frames by -z_mean_low on z.
+
+    Returns:
+      transl_new: (T,3)
+      z_mean_low: float
+      applied: bool
+    """
+    lowest_percent = float(np.clip(lowest_percent, 1e-6, 1.0))
+
+    body_pose_cpu = body_pose_rotm.detach().cpu()
+    global_orient_cpu = global_orient_rotm.detach().cpu()
+    betas_cpu = betas.detach().cpu()
+    transl_cpu = transl.detach().cpu()
+
+    with torch.no_grad():
+        out = smpl_model_cpu(
+            body_pose=body_pose_cpu,
+            global_orient=global_orient_cpu,
+            betas=betas_cpu,
+            transl=transl_cpu,
+            pose2rot=False,
+            default_smpl=True,
+        )
+        joints_z = out.joints[..., 2].reshape(-1)
+
+    if joints_z.numel() == 0:
+        return transl, 0.0, False
+
+    k = max(1, int(joints_z.numel() * lowest_percent))
+    lowest = torch.topk(joints_z, k, largest=False).values
+    z_mean_low = float(lowest.mean().item())
+
+    if abs(z_mean_low) >= float(abs_threshold):
+        return transl, z_mean_low, False
+
+    transl_new = transl.clone()
+    transl_new[:, 2] -= z_mean_low
+    return transl_new, z_mean_low, True
+
+
 # -----------------------------------------------------------------------------
 # Export helpers
 # -----------------------------------------------------------------------------
@@ -832,6 +936,9 @@ def export_to_targets(
         if mesh_src.exists():
             shutil.copy2(mesh_src, target_dir / "mesh.obj")
         if pieces_src.exists():
+            stale_dir = target_dir / "pieces"
+            if stale_dir.exists():
+                shutil.rmtree(stale_dir)
             for item in pieces_src.iterdir():
                 dst_item = target_dir / item.name
                 if item.is_dir():
@@ -875,6 +982,10 @@ def process_sequence(
     opt_w_smooth: float,
     opt_z_init: float,
     opt_frame_stride: int,
+    post_opt_z_offset: float,
+    extra_read_ours_opt: bool,
+    floor_lowest_percent: float,
+    floor_abs_threshold: float,
     num_joints: int,
 ) -> None:
     repo_root = REPO_ROOT
@@ -891,14 +1002,21 @@ def process_sequence(
         print("[WARN] Ignoring --camera-npz; using default *_sgd_cvd_hr camera export.")
 
     # 1) rotation
-    T_align, world_rotation = compute_world_alignment(
-        scene_name=seq_name,
-        hmr_type=hmr_type,
-        repo_root=repo_root,
-        camera_npz=None,
-        data_root=data_root,
-        is_megasam=is_megasam,
-    )
+    cached_world_rotation = seq_output_root / "world_rotation.npy"
+    if cached_world_rotation.exists():
+        world_rotation = np.load(cached_world_rotation).astype(np.float32)
+        T_align = np.eye(4, dtype=np.float32)
+        T_align[:3, :3] = world_rotation
+        print(f"[OK] Reusing cached world rotation: {cached_world_rotation}")
+    else:
+        T_align, world_rotation = compute_world_alignment(
+            scene_name=seq_name,
+            hmr_type=hmr_type,
+            repo_root=repo_root,
+            camera_npz=None,
+            data_root=data_root,
+            is_megasam=is_megasam,
+        )
 
     # 2) scene rotate+ground (shared translation)
     _scene_mesh_path, shared_translation, scene_mesh_for_sdf = rotate_scene_geometry_once_and_ground_trimesh(
@@ -967,6 +1085,25 @@ def process_sequence(
         trans_shared = trans_corrected
         trans_hmr_final = trans_shared
 
+    # 4.55) Extra read_ours-style floor z optimization
+    if extra_read_ours_opt:
+        smpl_model_cpu = SMPL().to("cpu")
+        trans_floor, z_low, applied = apply_read_ours_floor_z_optimization(
+            smpl_model_cpu=smpl_model_cpu,
+            body_pose_rotm=poses,
+            global_orient_rotm=global_orient_rot,
+            betas=betas,
+            transl=trans_shared,
+            lowest_percent=float(floor_lowest_percent),
+            abs_threshold=float(floor_abs_threshold),
+        )
+        if applied:
+            print(f"[OPT+RO] Applied global z correction: -({z_low:.6f})")
+            trans_shared = trans_floor
+            trans_hmr_final = trans_shared
+        else:
+            print(f"[OPT+RO] Skipped floor-z correction (z_low={z_low:.6f}, threshold={float(floor_abs_threshold):.3f}).")
+
     # 4.6) Penetration optimization
     if optimize_penetration and (scene_mesh_for_sdf is not None) and (scene_mesh_for_sdf.vertices.size > 0):
         print("[OPT] Building surface pointcloud (approx SDF) ...")
@@ -993,9 +1130,9 @@ def process_sequence(
             frame_stride=int(opt_frame_stride),
         )
         trans_hmr_final = trans_shared + transl_delta
-        z_offset = 0.1
+        z_offset = float(post_opt_z_offset)
         trans_hmr_final[:, 2] += z_offset
-        print("[OPT] Done. Applied transl_delta to trans_shared (+ extra z_offset=0.1).")
+        print(f"[OPT] Done. Applied transl_delta to trans_shared (+ extra z_offset={z_offset:.3f}).")
     elif optimize_penetration:
         print("[OPT] Skipped (no scene mesh available for SDF).")
 
@@ -1108,6 +1245,29 @@ def parse_args(argv: Optional[Sequence[str]] = None):
     parser.add_argument("--opt-w-smooth", type=float, default=1.0, help="Weight for temporal smoothness.")
     parser.add_argument("--opt-z-init", type=float, default=0.0, help="Initial z offset for transl_delta.")
     parser.add_argument("--opt-frame-stride", type=int, default=1, help="Use every k-th frame in penetration term (speed).")
+    parser.add_argument(
+        "--post-opt-z-offset",
+        type=float,
+        default=0.2,
+        help="Extra global z offset applied after penetration optimization.",
+    )
+    parser.add_argument(
+        "--no-extra-read-ours-opt",
+        action="store_true",
+        help="Disable extra read_ours-style floor z optimization.",
+    )
+    parser.add_argument(
+        "--floor-lowest-percent",
+        type=float,
+        default=0.01,
+        help="Portion of lowest joints-z used by extra read_ours-style floor optimization.",
+    )
+    parser.add_argument(
+        "--floor-abs-threshold",
+        type=float,
+        default=0.3,
+        help="Apply floor-z correction only when |z_low_mean| < threshold.",
+    )
 
     return parser.parse_args(argv)
 
@@ -1143,6 +1303,7 @@ def main(argv: Optional[Sequence[str]] = None):
     is_megasam = not args.no_megasam
     correct_transl = not args.no_correct_transl
     optimize_penetration = not args.no_optimize_penetration
+    extra_read_ours_opt = not args.no_extra_read_ours_opt
 
     for seq_name in seq_names:
         process_sequence(
@@ -1169,6 +1330,10 @@ def main(argv: Optional[Sequence[str]] = None):
             opt_w_smooth=args.opt_w_smooth,
             opt_z_init=args.opt_z_init,
             opt_frame_stride=args.opt_frame_stride,
+            post_opt_z_offset=args.post_opt_z_offset,
+            extra_read_ours_opt=extra_read_ours_opt,
+            floor_lowest_percent=args.floor_lowest_percent,
+            floor_abs_threshold=args.floor_abs_threshold,
             num_joints=args.num_joints,
         )
 
