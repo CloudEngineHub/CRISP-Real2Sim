@@ -135,7 +135,20 @@ results/output/scene/wall-kicking-envtest-20260317/gv/scene_mesh_sqs/scene_mesh_
 
 ---
 
-## 4. Visualize Human–Scene Reconstructions
+## 4. Contact Hallucination (Optional)
+
+```bash
+cd prep/Contact-Predictor
+```
+
+See [prep/Contact-Predictor/README.md](prep/Contact-Predictor/README.md).
+
+This component requires a separate environment because its dependency stack
+conflicts with the main CRISP and MotionTracking environments.
+
+---
+
+## 5. Visualize Human–Scene Reconstructions
 
 Compile viser if needed:
 
@@ -157,7 +170,7 @@ Common flags (see script header for the full list):
 
 ---
 
-## 5. Train Your Agent
+## 6. Train Your Agent
 
 ```bash
 cd MotionTracking
@@ -171,7 +184,7 @@ your working directory is already `MotionTracking`.
 
 ---
 
-## 6. Visualize Your Agent
+## 7. Visualize Your Agent
 
 Agent visualization builds on the same `vis.sh` infrastructure:
 
