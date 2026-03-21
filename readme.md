@@ -131,7 +131,6 @@ It is optional and is not part of `run_crisp_video.sh`.
 
 ```bash
 bash setup_crisp_contact.sh
-conda activate crisp_contact
 cd prep/Contact-Predictor
 bash fetch_data.sh hcontact-wScene
 cd ../..
@@ -139,7 +138,10 @@ bash scripts/0_interactvlm.sh /abs/path/to/data/demo/wall-kicking stairs
 ```
 
 Pass the sequence root without the `_img` suffix. The second argument is the
-object name used in the contact prompt.
+object name used in the contact prompt. It defaults to `stairs`, and you can
+replace it if needed.
+
+`0_interactvlm.sh` uses the separate `crisp_contact` env by default.
 
 Outputs are written to:
 
@@ -156,6 +158,8 @@ If you want a single batch entry with contact hallucination included:
 ```bash
 bash scripts/all_gv_contact.sh /abs/path/to/data/demo stairs
 ```
+
+Here too, `stairs` is just the default object name.
 
 ---
 

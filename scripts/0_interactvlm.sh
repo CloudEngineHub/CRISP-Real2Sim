@@ -11,6 +11,7 @@ Example:
 
 Notes:
   - Pass the sequence root without the `_img` suffix.
+  - Uses the separate Contact-Predictor env `crisp_contact` by default.
   - Outputs are written under `results/init/contacts` and `results/init/contact_vis`.
 EOF
     exit 1
@@ -19,6 +20,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CP_DIR="$REPO_ROOT/prep/Contact-Predictor"
+CONTACT_ENV="${CONTACT_ENV:-crisp_contact}"
 
 ROOT_INPUT="$(realpath -m "$1")"
 OBJ="${2:-stairs}"
@@ -32,13 +34,18 @@ fi
 [[ -d "$CP_DIR" ]] || { echo "Contact-Predictor not found: $CP_DIR" >&2; exit 1; }
 [[ -d "$DATA_PATH" ]] || { echo "Image folder not found: $DATA_PATH" >&2; exit 1; }
 
-cd "$CP_DIR"
+command -v conda >/dev/null 2>&1 || { echo "conda not found on PATH." >&2; exit 1; }
+conda run -n "$CONTACT_ENV" python -V >/dev/null 2>&1 || {
+    echo "Conda env '$CONTACT_ENV' not found. Run: bash setup_crisp_contact.sh $CONTACT_ENV" >&2
+    exit 1
+}
 
 GPU_COUNT=$(nvidia-smi -L | wc -l)
 GPU_IDS=($(seq 0 $((GPU_COUNT - 1))))
 
 echo "Found $GPU_COUNT GPUs -> ${GPU_IDS[*]}"
 echo "Scanning $DATA_PATH"
+echo "Using Contact-Predictor env: $CONTACT_ENV"
 
 mapfile -d '' DIRS < <(find "$DATA_PATH" -mindepth 1 -maxdepth 1 -type d -print0)
 NUM_DIRS=${#DIRS[@]}
@@ -48,6 +55,10 @@ worker() {
     local gpu_id="$1"
     shift
     local folders=("$@")
+
+    eval "$(conda shell.bash hook)"
+    conda activate "$CONTACT_ENV"
+    cd "$CP_DIR"
 
     for cam_folder in "${folders[@]}"; do
         local seq
