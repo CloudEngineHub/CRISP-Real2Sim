@@ -217,3 +217,18 @@ python agents/vis_agent.py \
 ```
 
 Pass `--scene_name` or `--camera_pose_file` if your controller requires a custom scene or camera path.
+
+---
+
+## Citation
+
+```bibtex
+@inproceedings{
+wang2026contactguided,
+title={Contact-guided Real2Sim from Monocular Video with Planar Scene Primitives},
+author={Zihan Wang and Jiashun Wang and Jeff Tan and Yiwen Zhao and Jessica K. Hodgins and Shubham Tulsiani and Deva Ramanan},
+booktitle={The Fourteenth International Conference on Learning Representations},
+year={2026},
+url={https://openreview.net/forum?id=xlr3NqxUqY}
+}
+```
