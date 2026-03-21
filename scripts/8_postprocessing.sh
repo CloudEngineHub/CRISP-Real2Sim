@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 VISER_DIR="$REPO_ROOT/vis_scripts/viser_m"
-ROTATE_SQS_ONLY="$REPO_ROOT/scripts/rotate_scene_sqs_only.py"
+ROTATE_SQS_ONLY="$REPO_ROOT/vis_scripts/viser_m/rotate_scene_sqs_only.py"
 DATA_ROOT="$REPO_ROOT/data"
 
 if [[ $# -lt 1 ]]; then

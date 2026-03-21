@@ -8,7 +8,7 @@ echo $REPO_ROOT
 VISER_DIR="$REPO_ROOT/vis_scripts/viser_m"
 VIS_SCRIPT="$VISER_DIR/vis.sh"
 SCRIPT3="$VISER_DIR/run_nksr.sh"
-BACKFILL_SCRIPT="$REPO_ROOT/scripts/backfill_sqs_params.py"
+BACKFILL_SCRIPT="$REPO_ROOT/vis_scripts/viser_m/backfill_sqs_params.py"
 
 DATA_ROOT="$REPO_ROOT/data"
 
