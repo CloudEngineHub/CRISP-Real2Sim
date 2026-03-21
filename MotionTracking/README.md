@@ -24,13 +24,13 @@ conda activate crisp_rl
 Full bridge into `MotionTracking/motion_data` and `MotionTracking/motion_tracking/data/assets/urdf`:
 
 ```bash
-bash bridge_crisp_sequence.sh <SEQ_NAME> <DATE_TAG> <METHOD> <HMR_TYPE>
+bash bridge_crisp_sequence.sh <SEQ_NAME> <DATE_TAG>
 ```
 
 Optional motion-only helper from the repository root:
 
 ```bash
-python vis_scripts/viser_m/process_to_rl.py --seq-names <SEQ_NAME> --date <DATE_TAG> --method <METHOD> --hmr-type <HMR_TYPE>
+python vis_scripts/viser_m/process_to_rl.py --seq-names <SEQ_NAME> --date <DATE_TAG>
 ```
 
 ## 3. Train
@@ -38,13 +38,13 @@ python vis_scripts/viser_m/process_to_rl.py --seq-names <SEQ_NAME> --date <DATE_
 Default training:
 
 ```bash
-bash run_bridged_train.sh <DATE_TAG> <SEQ_NAME> <METHOD>
+bash run_bridged_train.sh <DATE_TAG> <SEQ_NAME>
 ```
 
 Live `viser` debug run instead of `headless=True`:
 
 ```bash
-MT_VISER_PORT=8080 bash run_bridged_train.sh <DATE_TAG> <SEQ_NAME> <METHOD> headless=False num_envs=1 batch_size=8 visualize_markers=False
+MT_VISER_PORT=8080 bash run_bridged_train.sh <DATE_TAG> <SEQ_NAME> headless=False num_envs=1 batch_size=8 visualize_markers=False
 ```
 
 Use the second command for visualization/debug. Keep the first command for the normal large-batch recipe.
@@ -54,25 +54,25 @@ Use the second command for visualization/debug. Keep the first command for the n
 Headless evaluation:
 
 ```bash
-bash run_bridged_eval.sh <DATE_TAG> <SEQ_NAME> <METHOD> /abs/path/to/last.ckpt
+bash run_bridged_eval.sh <DATE_TAG> <SEQ_NAME> /abs/path/to/last.ckpt
 ```
 
 `viser` evaluation:
 
 ```bash
-MT_VISER_PORT=8081 bash run_bridged_eval_viser.sh <DATE_TAG> <SEQ_NAME> <METHOD> /abs/path/to/last.ckpt
+MT_VISER_PORT=8081 bash run_bridged_eval_viser.sh <DATE_TAG> <SEQ_NAME> /abs/path/to/last.ckpt
 ```
 
 ## 5. Export SMPL Parameters To File
 
 ```bash
-bash run_bridged_export_motion.sh <DATE_TAG> <SEQ_NAME> <METHOD> /abs/path/to/last.ckpt
+bash run_bridged_export_motion.sh <DATE_TAG> <SEQ_NAME> /abs/path/to/last.ckpt
 ```
 
 Default output:
 
 ```text
-results/export_motion/<DATE_TAG>_<SEQ_NAME>_<METHOD>/000/trajectory_pose_aa_0.pkl
+results/export_motion/<DATE_TAG>_<SEQ_NAME>_ours/000/trajectory_pose_aa_0.pkl
 ```
 
 That file contains:

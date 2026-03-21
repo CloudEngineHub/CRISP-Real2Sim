@@ -1,22 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 4 ]]; then
+if [[ $# -lt 3 ]]; then
     cat <<'EOF' >&2
 Usage:
+  bash run_bridged_export_motion.sh <DATE> <SCENE> <CHECKPOINT> [OUTPUT_DIR] [hydra overrides...]
   bash run_bridged_export_motion.sh <DATE> <SCENE> <METHOD> <CHECKPOINT> [OUTPUT_DIR] [hydra overrides...]
 
 Example:
-  bash run_bridged_export_motion.sh bridge0318 40_indoor_walk_big_circle ours /abs/path/to/last.ckpt
+  bash run_bridged_export_motion.sh bridge0318 40_indoor_walk_big_circle /abs/path/to/last.ckpt
 EOF
     exit 1
 fi
 
 DATE="$1"
 SCENE="$2"
-METHOD="$3"
-CHECKPOINT="$4"
-shift 4
+METHOD="ours"
+if [[ $# -ge 4 && "$3" != */* && "$3" != *.ckpt && "$3" != *.pt ]]; then
+    METHOD="$3"
+    CHECKPOINT="$4"
+    shift 4
+else
+    CHECKPOINT="$3"
+    shift 3
+fi
 
 OUTPUT_DIR="results/export_motion/${DATE}_${SCENE}_${METHOD}"
 if [[ $# -gt 0 && "$1" != *=* ]]; then

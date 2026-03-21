@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 3 ]]; then
+if [[ $# -lt 2 ]]; then
     cat <<'EOF' >&2
 Usage:
-  bash run_bridged_train.sh <DATE> <SCENE> <METHOD> [hydra overrides...]
+  bash run_bridged_train.sh <DATE> <SCENE> [METHOD] [hydra overrides...]
 
 Example:
-  bash run_bridged_train.sh bridge0318 40_indoor_walk_big_circle ours
+  bash run_bridged_train.sh bridge0318 40_indoor_walk_big_circle
 
 Set PRINT_ONLY=1 to print the command without running it.
 EOF
@@ -16,8 +16,12 @@ fi
 
 DATE="$1"
 SCENE="$2"
-METHOD="$3"
-shift 3
+METHOD="ours"
+shift 2
+if [[ $# -gt 0 && "$1" != *=* ]]; then
+    METHOD="$1"
+    shift
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python}"
