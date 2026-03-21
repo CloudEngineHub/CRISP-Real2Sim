@@ -3,7 +3,7 @@ set -euo pipefail
 
 PYTHON_BIN="${1:-python}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$SCRIPT_DIR"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MT_DIR="$REPO_ROOT/MotionTracking"
 
 if [[ ! -x "$PYTHON_BIN" ]]; then

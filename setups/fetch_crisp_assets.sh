@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TORCH_HUB_DIR="${TORCH_HOME:-$HOME/.cache/torch}/hub"
 TORCH_HUB_CHECKPOINTS="$TORCH_HUB_DIR/checkpoints"
 

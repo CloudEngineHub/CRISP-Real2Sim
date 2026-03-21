@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ENV_NAME="${1:-crisp_contact}"
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CP_DIR="$ROOT/prep/Contact-Predictor"
 
 echo "[1/3] conda create -n $ENV_NAME python=3.10"

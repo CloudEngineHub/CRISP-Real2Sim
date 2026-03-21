@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ENV_NAME="${1:-crisp_rl}"
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MT_DIR="$ROOT/MotionTracking"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/motiontracking"
 ISAAC_ARCHIVE="$CACHE_DIR/IsaacGym_Preview_4_Package.tar.gz"
@@ -91,6 +91,6 @@ cat <<EOF
 Ready:
   conda activate $ENV_NAME
   cd $MT_DIR
-  bash ../validate_motiontracking_viser_env.sh
+  bash setups/validate_motiontracking_viser_env.sh
 
 EOF

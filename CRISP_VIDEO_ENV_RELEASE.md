@@ -3,14 +3,14 @@
 ## Main Entry
 
 ```bash
-bash setup_crisp.sh
+bash setups/setup_crisp.sh
 conda activate crisp
 ```
 
 Optional check:
 
 ```bash
-bash validate_crisp_video_env.sh
+bash setups/validate_crisp_video_env.sh
 ```
 
 ## Assets
@@ -19,7 +19,7 @@ bash validate_crisp_video_env.sh
 cd prep
 bash smplme.sh
 cd ..
-bash fetch_crisp_assets.sh
+bash setups/fetch_crisp_assets.sh
 ```
 
 ## Run
@@ -27,7 +27,7 @@ bash fetch_crisp_assets.sh
 Demo:
 
 ```bash
-bash run_demo.sh
+bash setups/run_demo.sh
 ```
 
 Your own data:
@@ -50,10 +50,10 @@ or
 
 ## Files To Share
 
-- `setup_crisp.sh`
-- `fetch_crisp_assets.sh`
-- `run_demo.sh`
+- `setups/setup_crisp.sh`
+- `setups/fetch_crisp_assets.sh`
+- `setups/run_demo.sh`
 - `run_crisp_video.sh`
-- `validate_crisp_video_env.sh`
+- `setups/validate_crisp_video_env.sh`
 - `requirements-crisp-video.txt`
 - `runtime_shims/sitecustomize.py`

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_NAME="crisp"
 FETCH_ASSETS=0
 
@@ -12,10 +12,10 @@ for arg in "$@"; do
     esac
 done
 
-bash "$ROOT/setup_crisp.sh" "$ENV_NAME"
+bash "$ROOT/setups/setup_crisp.sh" "$ENV_NAME"
 
 if [[ "$FETCH_ASSETS" == "1" ]]; then
     eval "$(conda shell.bash hook)"
     conda activate "$ENV_NAME"
-    bash "$ROOT/fetch_crisp_assets.sh"
+    bash "$ROOT/setups/fetch_crisp_assets.sh"
 fi

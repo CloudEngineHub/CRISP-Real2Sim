@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ENV_NAME="${1:-crisp}"
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "[1/7] conda create -n $ENV_NAME python=3.10"
 conda create -n "$ENV_NAME" python=3.10 -y
@@ -62,6 +62,6 @@ cat <<EOF
 
 Ready:
   conda activate $ENV_NAME
-  bash validate_crisp_video_env.sh
+  bash setups/validate_crisp_video_env.sh
 
 EOF

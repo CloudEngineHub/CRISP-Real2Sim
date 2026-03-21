@@ -14,22 +14,22 @@
 ```bash
 git clone --recursive https://github.com/Z1hanW/CRISP-Real2Sim.git
 cd CRISP-Real2Sim
-bash setup_crisp.sh
+bash setups/setup_crisp.sh
 conda activate crisp
 ```
 
 Optional check:
 
 ```bash
-bash validate_crisp_video_env.sh
+bash setups/validate_crisp_video_env.sh
 ```
 
-Optional demo shortcut: [`run_demo.sh`](run_demo.sh)
+Optional demo shortcut: [`run_demo.sh`](setups/run_demo.sh)
 
 If you want a different env name:
 
 ```bash
-bash setup_crisp.sh my_crisp_env
+bash setups/setup_crisp.sh my_crisp_env
 conda activate my_crisp_env
 ```
 
@@ -45,11 +45,11 @@ conda activate my_crisp_env
 cd prep
 bash smplme.sh
 cd ..
-bash fetch_crisp_assets.sh
+bash setups/fetch_crisp_assets.sh
 ```
 
    - `smplme.sh` fills the SMPL / SMPL-X body-model paths.
-   - `fetch_crisp_assets.sh` pulls the demo checkpoints and the extra neutral SMPL file used by HMR.
+   - `setups/fetch_crisp_assets.sh` pulls the demo checkpoints and the extra neutral SMPL file used by HMR.
    - If the upstream download flow fails, place the files manually using the structure below.
 
 ```text
@@ -130,7 +130,7 @@ with the main CRISP and MotionTracking environments.
 It is optional and is not part of `run_crisp_video.sh`.
 
 ```bash
-bash setup_crisp_contact.sh
+bash setups/setup_crisp_contact.sh
 cd prep/Contact-Predictor
 bash fetch_data.sh hcontact-wScene
 cd ../..

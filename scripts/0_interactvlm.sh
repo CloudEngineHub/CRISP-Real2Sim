@@ -36,7 +36,7 @@ fi
 
 command -v conda >/dev/null 2>&1 || { echo "conda not found on PATH." >&2; exit 1; }
 conda run -n "$CONTACT_ENV" python -V >/dev/null 2>&1 || {
-    echo "Conda env '$CONTACT_ENV' not found. Run: bash setup_crisp_contact.sh $CONTACT_ENV" >&2
+    echo "Conda env '$CONTACT_ENV' not found. Run: bash setups/setup_crisp_contact.sh $CONTACT_ENV" >&2
     exit 1
 }
 
