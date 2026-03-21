@@ -110,10 +110,12 @@ def export_scene_as_urdf(parts, transforms, out_dir):
     urdf_path = out_dir
 
     
-    # Create fresh output directory
+    # Create fresh output directory and clear stale piece exports.
     out_dir.mkdir(parents=True, exist_ok=True)
 
     out_dir = out_dir / 'pieces'
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # ─── URDF 根 ──────────────────────────────────────────────────────────────
@@ -155,7 +157,7 @@ def export_scene_as_urdf(parts, transforms, out_dir):
         xml_declaration=True,
     )
 
-def save_custom_mesh(mesh_parts, tgt_folder):
+def save_custom_mesh(mesh_parts, tgt_folder, params_np=None):
     scene = trimesh.Scene()
     keep_T = []
     for p in mesh_parts:
@@ -167,6 +169,13 @@ def save_custom_mesh(mesh_parts, tgt_folder):
         keep_T.append(T_world)
 
     export_scene_as_urdf(mesh_parts, keep_T, tgt_folder)
+    if params_np is not None:
+        params_np = np.asarray(params_np, dtype=np.float32)
+        np.save(os.path.join(tgt_folder, "sqs_params.npy"), params_np)
+        np.savez_compressed(
+            os.path.join(tgt_folder, "sqs_params.npz"),
+            params=params_np,
+        )
 
 
 def convert_results_to_params_direct(
@@ -865,6 +874,7 @@ def main(
     static_camera: bool = False,
     sq_loss_threshold: Optional[float] = None,
     save_clustering: bool = True,
+    use_contact: bool = False,
 ) -> None:
     from pathlib import Path  # <-- Import Path here if not already imported
     tgt_name = str(data).split('_sgd')[0].split('/')[-1]   # gives 'MPH112_00169_01_tram'
@@ -1795,7 +1805,7 @@ def main(
     # single_image = False
     # single_image = bool(int(tgt_name[0]))
 
-    USE_CONTACT = False
+    USE_CONTACT = use_contact
     if 'qitao' in tgt_name or 'pk' in tgt_name or 'IMG' in tgt_name:
       single_image = False 
       # USE_CONTACT=False
@@ -1803,6 +1813,9 @@ def main(
     if 'TEST' in tgt_name:
       single_image = False 
     single_image = False
+    if USE_CONTACT and not Path(interact_contact_path).exists():
+        print(f"[contact] Contact output not found at {interact_contact_path}; skipping contact refinement.")
+        USE_CONTACT = False
     contact_pipeline_available = CAN_RUN_CONTACT_ANALYSIS
     if USE_CONTACT and not contact_pipeline_available:
         reason = CONTACT_IMPORT_ERROR or "missing scontact_utils"
@@ -2228,12 +2241,32 @@ def main(
             return str(path)
 
         try:
-          normals_tensor_nksr = torch.from_numpy(np.concatenate(points_normal_nksr, axis=0))
-          pointclouds_tensor_nksr = torch.from_numpy(np.concatenate(points_bg_map_nksr, axis=0))
+          normals_np_nksr = np.concatenate(points_normal_nksr, axis=0).astype(np.float32, copy=False)
+          points_np_nksr = np.concatenate(points_bg_map_nksr, axis=0).astype(np.float32, copy=False)
+          normals_tensor_nksr = torch.from_numpy(normals_np_nksr)
+          pointclouds_tensor_nksr = torch.from_numpy(points_np_nksr)
 
-          save_bg_normals(tgt_name, pointclouds_tensor_nksr, normals_tensor_nksr, fmt="pt")
-        except:
-          fasfas =2 
+          cache_path = save_bg_normals(tgt_name, pointclouds_tensor_nksr, normals_tensor_nksr, fmt="pt")
+          nksr_input_dir = save_dir / "nksr_input"
+          nksr_input_dir.mkdir(parents=True, exist_ok=True)
+
+          nksr_npz_path = nksr_input_dir / "pointcloud_world.npz"
+          np.savez_compressed(
+              nksr_npz_path,
+              points=points_np_nksr,
+              normals=normals_np_nksr,
+              frame_indices=np.asarray(frame_indices, dtype=np.int32),
+              interval=np.int32(interval),
+          )
+
+          nksr_ply_path = nksr_input_dir / "pointcloud_world.ply"
+          trimesh.PointCloud(vertices=points_np_nksr).export(nksr_ply_path)
+
+          print(f"[nksr] cached pointcloud -> {cache_path}")
+          print(f"[nksr] saved pointcloud npz -> {nksr_npz_path}")
+          print(f"[nksr] saved pointcloud ply -> {nksr_ply_path}")
+        except Exception as e:
+          print(f"[WARN] Failed to save NKSR pointcloud cache for {tgt_name}: {e}")
 
 
         # Handle mono_normals conversion properly
@@ -2460,7 +2493,7 @@ def main(
             )
             scene_mesh_coacd_contact_handle.visible = True
 
-        save_custom_mesh(per_sq_one_list, tgt_folder)
+        save_custom_mesh(per_sq_one_list, tgt_folder, params_np=params_np)
         
         if transfer_data:
 

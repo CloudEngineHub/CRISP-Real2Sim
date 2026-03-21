@@ -127,6 +127,8 @@ results/output/scene/wall-kicking-envtest-20260317/gv/scene_mesh_sqs/scene_mesh_
 This step uses a separate environment because its dependency stack conflicts
 with the main CRISP and MotionTracking environments.
 
+It is optional and is not part of `run_crisp_video.sh`.
+
 ```bash
 bash setup_crisp_contact.sh
 conda activate crisp_contact
@@ -146,6 +148,9 @@ results/init/contacts/<camera>/*.npz
 results/init/contact_vis/<camera>/*_vis.jpg
 ```
 
+After this step, you can enable contact-aware visualization from the main
+`crisp` environment.
+
 ---
 
 ## 5. Visualize Human–Scene Reconstructions
@@ -161,6 +166,12 @@ Visualize your sequences:
 
 ```bash
 bash vis.sh ${SEQ_NAME}
+```
+
+If you also ran the optional Contact Hallucination step:
+
+```bash
+USE_CONTACT=on bash vis.sh ${SEQ_NAME}
 ```
 
 Common flags (see script header for the full list):
