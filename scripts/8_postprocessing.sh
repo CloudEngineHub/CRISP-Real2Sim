@@ -4,7 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 VISER_DIR="$REPO_ROOT/vis_scripts/viser_m"
+ROT_SCRIPT="$VISER_DIR/rot.sh"
 ROTATE_SQS_ONLY="$REPO_ROOT/vis_scripts/viser_m/rotate_scene_sqs_only.py"
+BRIDGE_SCRIPT="$REPO_ROOT/MotionTracking/scripts/bridge_crisp_to_motiontracking.py"
 DATA_ROOT="$REPO_ROOT/data"
 
 if [[ $# -lt 1 ]]; then
@@ -15,6 +17,8 @@ fi
 SPLIT_INPUT="${1%/}"
 HMR_TYPE="${2:-gv}"
 LOG_DIR="${LOG_DIR:-/tmp/vis_megasam_logs}"
+RL_ENV="${RL_ENV:-crisp_rl}"
+RL_DATE="${RL_DATE:-bridge}"
 mkdir -p "$LOG_DIR"
 
 declare -a CANDIDATES=(
@@ -45,6 +49,16 @@ if [[ ! -f "$ROTATE_SQS_ONLY" ]]; then
   exit 1
 fi
 
+if [[ ! -x "$ROT_SCRIPT" ]]; then
+  echo "rot.sh not found at: $ROT_SCRIPT" >&2
+  exit 1
+fi
+
+if [[ ! -f "$BRIDGE_SCRIPT" ]]; then
+  echo "bridge_crisp_to_motiontracking.py not found at: $BRIDGE_SCRIPT" >&2
+  exit 1
+fi
+
 pushd "$VISER_DIR" >/dev/null
 
 shopt -s nullglob
@@ -63,7 +77,16 @@ for seq_dir in "${seq_dirs[@]}"; do
   [[ -f "$results_file" ]] || continue
 
   logfile="${LOG_DIR}/${seq_name}.log"
-  python "$ROTATE_SQS_ONLY" --sequence-name "$seq_name" --hmr-type "$HMR_TYPE" >"$logfile" 2>&1
+  {
+    echo "===== $(date +'%F %T') rot.sh ====="
+    HMR_TYPE="$HMR_TYPE" bash "$ROT_SCRIPT" "$seq_name"
+
+    echo "===== $(date +'%F %T') rotate_scene_sqs_only.py ====="
+    python "$ROTATE_SQS_ONLY" --sequence-name "$seq_name" --hmr-type "$HMR_TYPE"
+
+    echo "===== $(date +'%F %T') bridge_crisp_to_motiontracking.py ====="
+    conda run -n "$RL_ENV" python "$BRIDGE_SCRIPT" "$seq_name" --date "$RL_DATE" --hmr-type "$HMR_TYPE" --force
+  } >"$logfile" 2>&1
 done
 
 popd >/dev/null
