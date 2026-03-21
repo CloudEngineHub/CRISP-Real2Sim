@@ -151,6 +151,12 @@ results/init/contact_vis/<camera>/*_vis.jpg
 After this step, you can enable contact-aware visualization from the main
 `crisp` environment.
 
+If you want a single batch entry with contact hallucination included:
+
+```bash
+bash scripts/all_gv_contact.sh /abs/path/to/data/demo stairs
+```
+
 ---
 
 ## 5. Visualize Human–Scene Reconstructions
