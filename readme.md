@@ -8,7 +8,7 @@
 	
 ![teaser](https://raw.githubusercontent.com/Z1hanW/CRISP-Real2Sim/main/assets/crisp.png)
 
-We open source the code and video we used. See [Video Dataset](#video-dataset).
+### [Video Dataset (some Parkours & stairs)](#video-dataset)
 
 Code pipeline, in one line: scripts `1-8` are `1)` video-to-images convention, `2)` human masks, `3)` improved scene reconstruction, `4)` camera postprocess, `5)` GVHMR, `6)` human-scene alignment and opitmization, `7)` planar fitting, `8)` post-scene alignment + bridge; `MotionTracking` then handles RL train/eval/viser.
 
@@ -196,6 +196,10 @@ portion of these videos currently fail in CRISP because HMR is still not
 reliable under high-dynamics motion. We still decided to release them because
 we know that finding and cleaning suitable videos is a real bottleneck for
 such a real2sim pipeline.
+
+It also includes videos related to [PROX](https://prox.is.tue.mpg.de/),
+[EMDB](https://eth-ait.github.io/emdb/), and
+[RICH](https://rich.is.tue.mpg.de/).
 
 If these video data are helpful for your work, please consider citing CRISP.
 
