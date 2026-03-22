@@ -28,13 +28,6 @@ bash setups/validate_crisp_video_env.sh
 
 Optional demo shortcut: [`run_demo.sh`](setups/run_demo.sh)
 
-If you want a different env name:
-
-```bash
-bash setups/setup_crisp.sh my_crisp_env
-conda activate my_crisp_env
-```
-
 ---
 
 ### 2. Download Assets and Data
@@ -163,6 +156,8 @@ bash scripts/all_gv_contact.sh /abs/path/to/data/demo stairs
 
 Here too, `stairs` is just the default object name.
 
+<sub>Contact hallucination is currently not very stable, and it may not produce reasonable results for every video.</sub>
+
 ---
 
 ### 5. Visualize Human–Scene Reconstructions
@@ -227,17 +222,21 @@ Pass `--scene_name` or `--camera_pose_file` if your controller requires a custom
 We release a curated and clipped video dataset here:
 [Video Dataset](https://drive.google.com/drive/folders/1PX8Pqzqjlh5v0Z6xt-NjzTgpugk4igoN?usp=drive_link).
 
-It includes both self-captured videos and internet videos. A substantial
+It includes both self-captured videos and internet videos we collect with
+hours efforts. A substantial
 portion of these videos currently fail in CRISP because HMR is still not
 reliable under high-dynamics motion. We still decided to release them because
 we know that finding and cleaning suitable videos is a real bottleneck for
 such a real2sim pipeline.
 
-If you use these videos, please cite CRISP.
+If these video data are helpful for your work, please consider citing CRISP.
 
 ---
 
 ## Citation
+
+If the idea, code, visualization, or video data are helpful for your research,
+please consider citing CRISP.
 
 ```bibtex
 @inproceedings{
@@ -249,3 +248,7 @@ year={2026},
 url={https://openreview.net/forum?id=xlr3NqxUqY}
 }
 ```
+
+## Acknowledgment
+
+We thank [viser](https://github.com/viser-project/viser) for supporting our visualization workflow.
