@@ -10,6 +10,17 @@ results/output/post_scene/<SEQ>/<HMR_TYPE>/
 
 `results/output/scene/...` alone is not enough.
 
+If you only have `results/output/scene/...` from `bash run_crisp_video.sh`,
+go back to the repository root first and run:
+
+```bash
+conda activate crisp
+bash scripts/8_postprocessing.sh smoke gv
+```
+
+That step creates `results/output/post_scene/...` and bridges the demo into the
+MotionTracking layout.
+
 ## 1. Install The Environment
 
 From the repository root:
@@ -17,6 +28,8 @@ From the repository root:
 ```bash
 bash setups/setup_crisp_rl.sh
 conda activate crisp_rl
+bash setups/validate_motiontracking_viser_env.sh
+cd MotionTracking
 ```
 
 ## 2. Transfer CRISP Output Into The RL Layout
@@ -30,7 +43,9 @@ bash bridge_crisp_sequence.sh <SEQ_NAME> <DATE_TAG>
 Optional motion-only helper from the repository root:
 
 ```bash
+cd ..
 python vis_scripts/viser_m/process_to_rl.py --seq-names <SEQ_NAME> --date <DATE_TAG>
+cd MotionTracking
 ```
 
 ## 3. Train

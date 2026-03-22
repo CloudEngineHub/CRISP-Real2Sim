@@ -90,7 +90,8 @@ cat <<EOF
 
 Ready:
   conda activate $ENV_NAME
-  cd $MT_DIR
+  cd $ROOT
   bash setups/validate_motiontracking_viser_env.sh
+  cd $MT_DIR
 
 EOF

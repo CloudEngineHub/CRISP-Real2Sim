@@ -6,8 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MT_DIR="$REPO_ROOT/MotionTracking"
 
-if [[ ! -x "$PYTHON_BIN" ]]; then
-    echo "Python executable not found: $PYTHON_BIN" >&2
+if ! PYTHON_BIN="$(command -v "$PYTHON_BIN" 2>/dev/null)"; then
+    echo "Python executable not found in PATH: ${1:-python}" >&2
     exit 1
 fi
 

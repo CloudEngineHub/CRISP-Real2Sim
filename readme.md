@@ -10,6 +10,8 @@
 
 We open source the code and video we used. See [Video Dataset](#video-dataset).
 
+Code pipeline, in one line: scripts `1-8` are `1)` video-to-images convention, `2)` human masks, `3)` improved scene reconstruction, `4)` camera postprocess, `5)` GVHMR, `6)` human-scene alignment and opitmization, `7)` planar fitting, `8)` post-scene alignment + bridge; `MotionTracking` then handles RL train/eval/viser.
+
 ---
 
 ### 1. Repository Setup
@@ -68,6 +70,18 @@ gdown --folder "https://drive.google.com/drive/folders/1k712Oj9StmWXRzSeSMiHZc3L
 
 ### 3. Run the Full Pipeline
 
+Wrapper order:
+
+```text
+all_gv.sh:
+  1_video2imgs -> 2_get_mask -> 3_megasam -> 4_post_camera -> 5_grav
+  -> 0_ufm -> 6_align -> 7_glue_sqs -> 8_postprocessing
+
+all_gv_contact.sh:
+  1_video2imgs -> 0_interactvlm -> 2_get_mask -> 3_megasam -> 4_post_camera
+  -> 5_grav -> 0_ufm -> 6_align -> 7_glue_sqs(use contact) -> 8_postprocessing
+```
+
 The wrapper and scripts expect your source sequences to live under either
 `*_videos` or `*_img` folders. Remove that suffix when you feed paths to the
 scripts.
@@ -94,6 +108,10 @@ bash run_crisp_video.sh /path/to/data/demo        # not /path/to/data/demo_video
 - The pipeline will iterate through every sequence under the root you supply.
 - Intermediate outputs are written under `results/init/`.
 - Final scene outputs are written under `results/output/scene/`.
+- By default this wrapper also runs `scripts/8_postprocessing.sh`, so it
+  continues from `scene` into `post_scene` and the MotionTracking bridge.
+- If you want that end-to-end path to finish in one shot, install `crisp_rl`
+  first with `bash setups/setup_crisp_rl.sh`.
 - The main scene result is saved as:
 
 ```text
@@ -106,38 +124,38 @@ results/output/scene/<SEQ_NAME>_gv_sgd_cvd_hr.npz
 results/output/scene/<SEQ_NAME>/gv/scene_mesh_sqs/scene_mesh_sqs.urdf
 ```
 
-#### Validated Example
-
-The current helper-based environment was validated by running one full video
-through the new environment and producing:
+- The aligned post-processing output is saved as:
 
 ```text
-results/output/scene/wall-kicking-envtest-20260317_gv_sgd_cvd_hr.npz
-results/output/scene/wall-kicking-envtest-20260317/gv/scene_mesh_sqs/scene_mesh_sqs.urdf
+results/output/post_scene/<SEQ_NAME>/gv/hmr/human_motion.npz
 ```
 
+- The bridged MotionTracking motion is saved as:
+
+```text
+MotionTracking/motion_data/<DATE_TAG>/<SEQ_NAME>_ours.npy
+```
+
+Validated on the demo sequence:
+
+```text
+results/output/scene/wall-kicking-smoke_gv_sgd_cvd_hr.npz
+results/output/scene/wall-kicking-smoke/gv/scene_mesh_sqs/scene_mesh_sqs.urdf
+```
 ---
 
 ### 4. Contact Hallucination (Optional)
 
-This step uses a separate environment because its dependency stack conflicts
+It is optional and is not part of `run_crisp_video.sh`. This step uses a separate environment because its dependency stack conflicts
 with the main CRISP and MotionTracking environments.
-
-It is optional and is not part of `run_crisp_video.sh`.
 
 ```bash
 bash setups/setup_crisp_contact.sh
 cd prep/Contact-Predictor
 bash fetch_data.sh hcontact-wScene
 cd ../..
-bash scripts/0_interactvlm.sh /abs/path/to/data/demo/wall-kicking stairs
+bash scripts/0_interactvlm.sh /abs/path/to/data/demo/pkr stairs # 'stairs' is the object name , replace it for other object
 ```
-
-Pass the sequence root without the `_img` suffix. The second argument is the
-object name used in the contact prompt. It defaults to `stairs`, and you can
-replace it if needed.
-
-`0_interactvlm.sh` uses the separate `crisp_contact` env by default.
 
 Outputs are written to:
 
@@ -155,7 +173,8 @@ If you want a single batch entry with contact hallucination included:
 bash scripts/all_gv_contact.sh /abs/path/to/data/demo stairs
 ```
 
-Here too, `stairs` is just the default object name.
+Like `run_crisp_video.sh`, this batch entry now also continues through
+`post_scene` and the MotionTracking bridge by default.
 
 <sub>Contact hallucination is currently not very stable, and it may not produce reasonable results for every video.</sub>
 
@@ -190,6 +209,23 @@ Common flags (see script header for the full list):
 ---
 
 ### 6. Train Your Agent
+
+If you already have an older run that stopped at `results/output/scene/...`,
+you can rerun only the alignment + bridge stage from the repository root:
+
+```bash
+conda activate crisp
+bash scripts/8_postprocessing.sh smoke gv
+```
+
+That step produces:
+
+```text
+results/output/post_scene/wall-kicking-smoke/gv/
+```
+
+and bridges the demo into MotionTracking under the default date tag `bridge`
+(or a custom `RL_DATE` if you set one).
 
 ```bash
 cd MotionTracking

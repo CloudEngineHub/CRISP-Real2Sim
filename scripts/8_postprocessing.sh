@@ -10,7 +10,7 @@ BRIDGE_SCRIPT="$REPO_ROOT/MotionTracking/scripts/bridge_crisp_to_motiontracking.
 DATA_ROOT="$REPO_ROOT/data"
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: sh prep_rl.sh <split_or_path> [hmr_type]" >&2
+  echo "Usage: bash scripts/8_postprocessing.sh <split_or_path> [hmr_type]" >&2
   exit 1
 fi
 
