@@ -23,11 +23,6 @@ bash setups/setup_crisp.sh
 conda activate crisp
 ```
 
-Optional check:
-
-```bash
-bash setups/validate_crisp_video_env.sh
-```
 
 Optional demo shortcut: [`run_demo.sh`](setups/run_demo.sh)
 
@@ -68,23 +63,24 @@ For your own data:
 bash run_crisp_video.sh /path/to/data/demo        # not /path/to/data/demo_videos
 ```
 
-- The main scene result is saved as:
+Results will contain both `scene` and `post_scene`:
 
 ```text
-results/output/scene/<SEQ_NAME>_gv_sgd_cvd_hr.npz
+results/output/scene/
+├── <SEQ_NAME>_gv_sgd_cvd_hr.npz
+└── <SEQ_NAME>/gv/scene_mesh_sqs/
+    ├── scene_mesh_sqs.urdf
+    └── ...
+
+results/output/post_scene/
+└── <SEQ_NAME>/gv/
+    ├── hmr/human_motion.npz
+    ├── scene_mesh_sqs/
+    └── ...
 ```
 
-- The SQS scene export is saved as:
-
-```text
-results/output/scene/<SEQ_NAME>/gv/scene_mesh_sqs/scene_mesh_sqs.urdf
-```
-
-- The aligned post-processing output is saved as:
-
-```text
-results/output/post_scene/<SEQ_NAME>/gv/hmr/human_motion.npz
-```
+Comment: `scene` is the direct CRISP reconstruction output; `post_scene` is the
+aligned post-processed version used for bridging into MotionTracking.
 
 ---
 
@@ -94,10 +90,6 @@ See [prep/README.md](prep/README.md#2-optional-contact-hallucination) for the
 full contact setup and data-prep details.
 
 ```bash
-bash setups/setup_crisp_contact.sh
-cd prep/Contact-Predictor
-bash fetch_data.sh hcontact-wScene
-cd ../..
 bash scripts/0_interactvlm.sh /abs/path/to/data/demo/pkr stairs
 ```
 
