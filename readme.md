@@ -80,7 +80,7 @@ results/output/post_scene/
 ```
 
 Comment: `scene` is the direct CRISP reconstruction output; `post_scene` is the
-aligned post-processed version used for bridging into MotionTracking.
+aligned, rotated z-up post-processed version used for bridging into MotionTracking.
 
 ---
 
