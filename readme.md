@@ -157,6 +157,34 @@ Pass `--scene_name` or `--camera_pose_file` if your controller requires a custom
 
 ---
 
+### 8. Optional NKSR Surface Reconstruction
+
+If you want a more detailed surface and want to test NKSR on CRISP point
+clouds, install NKSR in a cloned `crisp` environment:
+
+```bash
+bash setups/setup_crisp_nksr.sh
+conda activate crisp_nksr
+```
+
+Then convert the saved CRISP point cloud to an NKSR mesh:
+
+```bash
+cd vis_scripts/viser_m
+NKSR_MAX_INPUT_POINTS=200000 NKSR_DETAIL_LEVEL=0.1 bash run_nksr.sh ${SEQ_NAME}
+```
+
+and writes in:
+
+```text
+results/output/scene/<SEQ_NAME>/gv/nksr
+```
+
+Comment: this is an extra detailed-surface test path; the main CRISP pipeline
+does not depend on NKSR.
+
+---
+
 ## Video Dataset
 
 We release a curated and clipped video dataset here:
@@ -179,13 +207,10 @@ If the idea, code, visualization, or video data are helpful for your research,
 please consider citing CRISP.
 
 ```bibtex
-@inproceedings{
-wang2026contactguided,
+@inproceedings{wangcontact,
 title={Contact-guided Real2Sim from Monocular Video with Planar Scene Primitives},
-author={Zihan Wang and Jiashun Wang and Jeff Tan and Yiwen Zhao and Jessica K. Hodgins and Shubham Tulsiani and Deva Ramanan},
-booktitle={The Fourteenth International Conference on Learning Representations},
-year={2026},
-url={https://openreview.net/forum?id=xlr3NqxUqY}
+author={Wang, Zihan and Wang, Jiashun and Tan, Jeff and Zhao, Yiwen and Hodgins, Jessica K and Tulsiani, Shubham and Ramanan, Deva},
+booktitle={The Fourteenth International Conference on Learning Representations}
 }
 ```
 
