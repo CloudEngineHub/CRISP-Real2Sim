@@ -191,17 +191,14 @@ We release a curated and clipped video dataset here:
 [Video Dataset](https://drive.google.com/drive/folders/1PX8Pqzqjlh5v0Z6xt-NjzTgpugk4igoN?usp=drive_link).
 
 It includes both self-captured videos and internet videos we collect with
-hours efforts. A substantial
-portion of these videos currently fail in CRISP because HMR is still not
+hours efforts. A substantial portion of these videos currently fail in CRISP because HMR is still not
 reliable under high-dynamics motion. We still decided to release them because
-we know that finding and cleaning suitable videos is a real bottleneck for
+we know that finding clean suitable videos is a real bottleneck for
 such a real2sim pipeline.
 
 It also includes videos related to [PROX](https://prox.is.tue.mpg.de/),
 [EMDB](https://eth-ait.github.io/emdb/), and
-[RICH](https://rich.is.tue.mpg.de/).
-
-If these video data are helpful for your work, please consider citing CRISP.
+[RICH](https://rich.is.tue.mpg.de/), please consider citing them and CRISP if you find those video data are useful for your work.
 
 ---
 
