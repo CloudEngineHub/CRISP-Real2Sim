@@ -93,7 +93,12 @@ def _mask_to_runs(mask: np.ndarray) -> List[Tuple[int,int]]:
     if mask[-1]: ends   = np.r_[ends, mask.size]
     return [(int(s), int(e)) for s, e in zip(starts, ends)]
 
-def find_contact_and_velocity_segments(per_part: Dict[str, Dict], min_duration: int = 15) -> List[Tuple[int, int]]:
+def find_contact_and_velocity_segments(
+    per_part: Dict[str, Dict],
+    min_duration: int = 15,
+    relax_last_n: int = 0,
+    relax_min_duration_last: int = 0,
+) -> List[Tuple[int, int]]:
     """
     Find segments where ANY part has both contact AND low velocity (the blue regions in column 3).
     This replaces the static segmentation with segments based on actual contact+velocity windows.
@@ -117,7 +122,21 @@ def find_contact_and_velocity_segments(per_part: Dict[str, Dict], min_duration: 
     for start, end in runs:
         if (end - start) >= min_duration:
             segments.append((start, end))
-    
+
+    if relax_last_n > 0 and relax_min_duration_last > 0:
+        tail_start = max(0, combined_mask.shape[0] - relax_last_n)
+        tail_mask = np.zeros_like(combined_mask, dtype=bool)
+        tail_mask[tail_start:] = combined_mask[tail_start:]
+        tail_runs = _mask_to_runs(tail_mask)
+        for start, end in tail_runs:
+            if (end - start) < relax_min_duration_last:
+                continue
+            if (start, end) in segments:
+                continue
+            segments.append((start, end))
+
+    segments.sort(key=lambda x: (x[0], x[1]))
+
     print(f"Found {len(segments)} contact+velocity segments:")
     for i, (s, e) in enumerate(segments):
         print(f"  Segment {i}: frames {s}-{e} (duration: {e-s})")
@@ -856,12 +875,23 @@ def analyze_contacts_5parts(
         cfg = body_part_params.get(pname, {})
         vel_thr = float(cfg.get("vel_threshold", 0.01))
         part_min_run = int(cfg.get("min_consecutive_frames", 15))
+        relax_last_n = int(cfg.get("relax_last_N", 0))
+        relax_min_run_last = int(cfg.get("relax_min_run_last", 0))
+        relax_vel_thr_last = float(cfg.get("relax_vel_threshold_last", vel_thr))
 
         counts_k = per_counts[k]
         part_size = max(1, len(part_ids_list[k]))
         has_contact_k = (counts_k >= 0.5 * part_size)
 
         low_mask_k = _low_velocity_mask(per_vels[k], vel_thr, part_min_run)
+        if relax_last_n > 0 and relax_min_run_last > 0:
+            relaxed_low_mask_k = _low_velocity_mask(
+                per_vels[k],
+                relax_vel_thr_last,
+                relax_min_run_last,
+            )
+            tail_start = max(0, T - relax_last_n)
+            low_mask_k[tail_start:] |= relaxed_low_mask_k[tail_start:]
         inter_mask_k = has_contact_k & low_mask_k
 
         per_debug[pname] = {
@@ -873,7 +903,23 @@ def analyze_contacts_5parts(
         }
 
     # Find segments based on intersection masks (the blue regions!)
-    static_segments = find_contact_and_velocity_segments(per_debug, min_duration=min_static_duration)
+    tail_relax_last_n = max(
+        int(body_part_params.get(pname, {}).get("relax_last_N", 0))
+        for pname in PART_ORDER
+    )
+    tail_relax_min_duration = min(
+        [
+            int(body_part_params.get(pname, {}).get("relax_min_run_last", 0))
+            for pname in PART_ORDER
+            if int(body_part_params.get(pname, {}).get("relax_min_run_last", 0)) > 0
+        ] or [0]
+    )
+    static_segments = find_contact_and_velocity_segments(
+        per_debug,
+        min_duration=min_static_duration,
+        relax_last_n=tail_relax_last_n,
+        relax_min_duration_last=tail_relax_min_duration,
+    )
     
     # Dummy static_frames for compatibility
     static_frames = np.zeros((T,), dtype=bool)
@@ -1406,4 +1452,3 @@ def load_contact_points_for_parts(
         all_points = np.empty((0, 3), dtype=np.float32)
 
     return per_part_points, all_points
-

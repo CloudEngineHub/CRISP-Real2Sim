@@ -2528,6 +2528,345 @@ def process_global_segments(
     return dict(S_items=S_items, R_items=R_items, T_items=T_items, pts_items=pts_items)
 
 
+def _fit_plane_box_from_points(
+    world_points: torch.Tensor,
+    gid: int,
+    device: str = 'cuda',
+    use_plane_constraint: bool = True,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Fit a plane-aligned box to one point set and return the fitted plane metadata."""
+    world_points = world_points.to(device=device, dtype=torch.float32)
+    if world_points.ndim != 2 or world_points.shape[1] != 3:
+        raise ValueError(f"world_points must be (N, 3), got {tuple(world_points.shape)}")
+    if world_points.shape[0] < 3:
+        raise ValueError("Need at least 3 points to fit a plane-constrained box.")
+
+    k = max(3, min(20, int(world_points.shape[0])))
+    avg_normal = estimate_normals_knn(world_points, k=k).to(device)
+    avg_normal = F.normalize(avg_normal.mean(dim=0), dim=0)
+
+    P_all = world_points
+    if use_plane_constraint:
+        n, c, inliers = robust_plane_ransac(P_all, avg_normal)
+        if n is None or c is None or inliers is None:
+            n = avg_normal
+            c = P_all.mean(dim=0)
+            inliers = torch.ones((P_all.shape[0],), dtype=torch.bool, device=P_all.device)
+    else:
+        n = avg_normal
+        c = P_all.mean(dim=0)
+        inliers = torch.ones((P_all.shape[0],), dtype=torch.bool, device=P_all.device)
+
+    P = P_all[inliers] if int(inliers.sum().item()) > 50 else P_all
+    R_bw, centre, half_sz, _ = fit_one_plane_box(P, n, c, gid)
+    half_sz = half_sz.clamp(min=0.02)
+    return R_bw, centre, half_sz, P_all, P, n, c
+
+
+def _extend_contact_box_to_scene_barriers(
+    contact_points: torch.Tensor,
+    base_R_bw: torch.Tensor,
+    base_center: torch.Tensor,
+    base_half_sz: torch.Tensor,
+    scene_primitives: Optional[Dict[str, List[torch.Tensor]]] = None,
+    device: str = 'cuda',
+    perpendicular_tol_deg: float = 20.0,
+    min_scene_planarity: float = 0.60,
+    max_extension: float = 1.25,
+    max_hinge_distance: float = 2.5,
+    overlap_tol: float = 0.10,
+    boundary_clearance: float = 0.02,
+    hinge_snap_clearance: float = 0.003,
+    point_padding: float = 0.01,
+    contact_extent_scale: float = 1.10,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Expand a contact-support plane toward nearby nearly-perpendicular scene planes.
+
+    The box is first guaranteed to contain the selected contact points with a slightly inflated
+    in-plane footprint. Then each in-plane side can grow up to the closest nearby perpendicular
+    barrier, but never past that barrier.
+    """
+    contact_points = contact_points.to(device=device, dtype=torch.float32)
+    x_axis = F.normalize(base_R_bw[:, 0], dim=0)
+    y_axis = F.normalize(base_R_bw[:, 1], dim=0)
+    n_contact = F.normalize(base_R_bw[:, 2], dim=0)
+    R_contact = torch.stack([x_axis, y_axis, n_contact], dim=1)
+
+    local_contact = (contact_points - base_center) @ R_contact
+    u_min_raw = float(local_contact[:, 0].min().item()) - point_padding
+    u_max_raw = float(local_contact[:, 0].max().item()) + point_padding
+    v_min_raw = float(local_contact[:, 1].min().item()) - point_padding
+    v_max_raw = float(local_contact[:, 1].max().item()) + point_padding
+
+    def _inflate_interval(lo: float, hi: float, scale: float) -> Tuple[float, float]:
+        ctr = 0.5 * (lo + hi)
+        half = max(0.5 * (hi - lo), 0.02)
+        half *= scale
+        return ctr - half, ctr + half
+
+    u_min, u_max = _inflate_interval(u_min_raw, u_max_raw, contact_extent_scale)
+    v_min, v_max = _inflate_interval(v_min_raw, v_max_raw, contact_extent_scale)
+    contact_u_min = u_min
+    contact_u_max = u_max
+    contact_v_min = v_min
+    contact_v_max = v_max
+    z_half = float(max(base_half_sz[2].item(), 0.02))
+
+    print(
+        f"[contact] Wrapped selected points with {contact_extent_scale * 100:.0f}% in-plane extent "
+        f"(u: {u_min:.3f}..{u_max:.3f}, v: {v_min:.3f}..{v_max:.3f})."
+    )
+
+    if not scene_primitives or not scene_primitives.get("pts_items"):
+        center_local = torch.tensor(
+            [(u_min + u_max) * 0.5, (v_min + v_max) * 0.5, 0.0],
+            device=device,
+            dtype=base_center.dtype,
+        )
+        half_ext = torch.tensor(
+            [
+                max((u_max - u_min) * 0.5, 0.02),
+                max((v_max - v_min) * 0.5, 0.02),
+                z_half,
+            ],
+            device=device,
+            dtype=base_half_sz.dtype,
+        )
+        centre = base_center + R_contact @ center_local
+        return R_contact, centre, half_ext
+
+    u_ref = float(local_contact[:, 0].mean().item())
+    v_ref = float(local_contact[:, 1].mean().item())
+
+    sin_tol = float(np.sin(np.deg2rad(perpendicular_tol_deg)))
+    best_hit = {"u_pos": None, "u_neg": None, "v_pos": None, "v_neg": None}
+    best_gap = {key: float("inf") for key in best_hit}
+    hinge_candidate = None
+    hinge_cost = float("inf")
+    chosen_hinge = None
+
+    for scene_idx, pts_item in enumerate(scene_primitives.get("pts_items", [])):
+        if pts_item is None:
+            continue
+        scene_pts = pts_item.to(device=device, dtype=torch.float32) if hasattr(pts_item, "to") else torch.as_tensor(pts_item, device=device, dtype=torch.float32)
+        if scene_pts.ndim != 2 or scene_pts.shape[1] != 3 or scene_pts.shape[0] < 80:
+            continue
+
+        try:
+            k = max(3, min(20, int(scene_pts.shape[0])))
+            avg_normal = estimate_normals_knn(scene_pts, k=k).to(device)
+            avg_normal = F.normalize(avg_normal.mean(dim=0), dim=0)
+            n_scene, c_scene, inliers = robust_plane_ransac(scene_pts, avg_normal)
+        except Exception:
+            continue
+
+        if n_scene is None or c_scene is None or inliers is None:
+            continue
+
+        planarity_ratio = float(inliers.float().mean().item())
+        if planarity_ratio < min_scene_planarity:
+            continue
+
+        n_scene = F.normalize(n_scene, dim=0)
+        if abs(float(torch.dot(n_scene, n_contact).item())) > sin_tol:
+            continue
+
+        scene_support = scene_pts[inliers] if int(inliers.sum().item()) > 50 else scene_pts
+        local_scene = (scene_support - base_center) @ R_contact
+        scene_u_min = float(local_scene[:, 0].min().item())
+        scene_u_max = float(local_scene[:, 0].max().item())
+        scene_v_min = float(local_scene[:, 1].min().item())
+        scene_v_max = float(local_scene[:, 1].max().item())
+        scene_u_center = 0.5 * (scene_u_min + scene_u_max)
+        scene_v_center = 0.5 * (scene_v_min + scene_v_max)
+        center_dist = float(torch.linalg.norm(c_scene - base_center).item())
+
+        a = float(torch.dot(n_scene, x_axis).item())
+        b = float(torch.dot(n_scene, y_axis).item())
+        d = float(torch.dot(n_scene, base_center - c_scene).item())
+        if max(abs(a), abs(b)) < 1e-6:
+            continue
+
+        gap_u_pos = max(0.0, scene_u_min - u_max)
+        gap_u_neg = max(0.0, u_min - scene_u_max)
+        gap_v_pos = max(0.0, scene_v_min - v_max)
+        gap_v_neg = max(0.0, v_min - scene_v_max)
+        overlap_u_sep = max(0.0, max(u_min - scene_u_max, scene_u_min - u_max))
+        overlap_v_sep = max(0.0, max(v_min - scene_v_max, scene_v_min - v_max))
+
+        if abs(a) >= abs(b):
+            if scene_v_max < v_min - overlap_tol or scene_v_min > v_max + overlap_tol:
+                v_clamped = scene_v_center
+            else:
+                v_clamped = min(max(v_ref, max(v_min, scene_v_min)), min(v_max, scene_v_max))
+            u_hit = (-d - b * v_clamped) / a
+            if u_hit > u_max + boundary_clearance:
+                gap = u_hit - u_max
+                if gap <= max_extension and gap < best_gap["u_pos"]:
+                    best_gap["u_pos"] = gap
+                    best_hit["u_pos"] = (u_hit, scene_idx)
+            elif u_hit < u_min - boundary_clearance:
+                gap = u_min - u_hit
+                if gap <= max_extension and gap < best_gap["u_neg"]:
+                    best_gap["u_neg"] = gap
+                    best_hit["u_neg"] = (u_hit, scene_idx)
+            hinge_side = None
+            hinge_value = None
+            if gap_u_pos > 0.0:
+                hinge_side = "u_pos"
+                hinge_value = u_hit
+            elif gap_u_neg > 0.0:
+                hinge_side = "u_neg"
+                hinge_value = u_hit
+            if hinge_side is not None and center_dist <= max_hinge_distance:
+                cost = center_dist + overlap_v_sep
+                if cost < hinge_cost:
+                    hinge_cost = cost
+                    hinge_candidate = (hinge_side, hinge_value, scene_idx, center_dist)
+        else:
+            if scene_u_max < u_min - overlap_tol or scene_u_min > u_max + overlap_tol:
+                u_clamped = scene_u_center
+            else:
+                u_clamped = min(max(u_ref, max(u_min, scene_u_min)), min(u_max, scene_u_max))
+            v_hit = (-d - a * u_clamped) / b
+            if v_hit > v_max + boundary_clearance:
+                gap = v_hit - v_max
+                if gap <= max_extension and gap < best_gap["v_pos"]:
+                    best_gap["v_pos"] = gap
+                    best_hit["v_pos"] = (v_hit, scene_idx)
+            elif v_hit < v_min - boundary_clearance:
+                gap = v_min - v_hit
+                if gap <= max_extension and gap < best_gap["v_neg"]:
+                    best_gap["v_neg"] = gap
+                    best_hit["v_neg"] = (v_hit, scene_idx)
+            hinge_side = None
+            hinge_value = None
+            if gap_v_pos > 0.0:
+                hinge_side = "v_pos"
+                hinge_value = v_hit
+            elif gap_v_neg > 0.0:
+                hinge_side = "v_neg"
+                hinge_value = v_hit
+            if hinge_side is not None and center_dist <= max_hinge_distance:
+                cost = center_dist + overlap_u_sep
+                if cost < hinge_cost:
+                    hinge_cost = cost
+                    hinge_candidate = (hinge_side, hinge_value, scene_idx, center_dist)
+
+    if best_hit["u_pos"] is not None:
+        hit, scene_idx = best_hit["u_pos"]
+        new_u_max = max(u_max, hit - boundary_clearance)
+        print(f"[contact] Extend +u from {u_max:.3f} to {new_u_max:.3f} using near-perpendicular scene plane {scene_idx}.")
+        u_max = new_u_max
+        chosen_hinge = ("u_pos", hit, scene_idx)
+    if best_hit["u_neg"] is not None:
+        hit, scene_idx = best_hit["u_neg"]
+        new_u_min = min(u_min, hit + boundary_clearance)
+        print(f"[contact] Extend -u from {u_min:.3f} to {new_u_min:.3f} using near-perpendicular scene plane {scene_idx}.")
+        u_min = new_u_min
+        chosen_hinge = ("u_neg", hit, scene_idx)
+    if best_hit["v_pos"] is not None:
+        hit, scene_idx = best_hit["v_pos"]
+        new_v_max = max(v_max, hit - boundary_clearance)
+        print(f"[contact] Extend +v from {v_max:.3f} to {new_v_max:.3f} using near-perpendicular scene plane {scene_idx}.")
+        v_max = new_v_max
+        chosen_hinge = ("v_pos", hit, scene_idx)
+    if best_hit["v_neg"] is not None:
+        hit, scene_idx = best_hit["v_neg"]
+        new_v_min = min(v_min, hit + boundary_clearance)
+        print(f"[contact] Extend -v from {v_min:.3f} to {new_v_min:.3f} using near-perpendicular scene plane {scene_idx}.")
+        v_min = new_v_min
+        chosen_hinge = ("v_neg", hit, scene_idx)
+
+    if all(value is None for value in best_hit.values()) and hinge_candidate is not None:
+        side, hit, scene_idx, center_dist = hinge_candidate
+        if side == "u_pos":
+            new_u_max = max(u_max, hit - boundary_clearance)
+            print(f"[contact] Hinge +u from {u_max:.3f} to {new_u_max:.3f} using nearest planar primitive {scene_idx} (dist {center_dist:.3f}).")
+            u_max = new_u_max
+        elif side == "u_neg":
+            new_u_min = min(u_min, hit + boundary_clearance)
+            print(f"[contact] Hinge -u from {u_min:.3f} to {new_u_min:.3f} using nearest planar primitive {scene_idx} (dist {center_dist:.3f}).")
+            u_min = new_u_min
+        elif side == "v_pos":
+            new_v_max = max(v_max, hit - boundary_clearance)
+            print(f"[contact] Hinge +v from {v_max:.3f} to {new_v_max:.3f} using nearest planar primitive {scene_idx} (dist {center_dist:.3f}).")
+            v_max = new_v_max
+        elif side == "v_neg":
+            new_v_min = min(v_min, hit + boundary_clearance)
+            print(f"[contact] Hinge -v from {v_min:.3f} to {new_v_min:.3f} using nearest planar primitive {scene_idx} (dist {center_dist:.3f}).")
+            v_min = new_v_min
+        chosen_hinge = (side, hit, scene_idx)
+
+    if all(value is None for value in best_hit.values()) and hinge_candidate is None:
+        print("[contact] No nearby near-perpendicular scene plane found; using wrapped contact patch only.")
+
+    if chosen_hinge is not None:
+        side, hit, scene_idx = chosen_hinge
+        if side == "u_pos":
+            desired_edge = hit - hinge_snap_clearance
+            delta = desired_edge - u_max
+            if abs(delta) > 1e-6:
+                u_min += delta
+                u_max += delta
+                if u_min > contact_u_min:
+                    u_min = contact_u_min
+                if u_max < contact_u_max:
+                    u_max = contact_u_max
+                print(f"[contact] Nudge +u hinge toward scene plane {scene_idx}: delta {delta:.3f}.")
+        elif side == "u_neg":
+            desired_edge = hit + hinge_snap_clearance
+            delta = desired_edge - u_min
+            if abs(delta) > 1e-6:
+                u_min += delta
+                u_max += delta
+                if u_min > contact_u_min:
+                    u_min = contact_u_min
+                if u_max < contact_u_max:
+                    u_max = contact_u_max
+                print(f"[contact] Nudge -u hinge toward scene plane {scene_idx}: delta {delta:.3f}.")
+        elif side == "v_pos":
+            desired_edge = hit - hinge_snap_clearance
+            delta = desired_edge - v_max
+            if abs(delta) > 1e-6:
+                v_min += delta
+                v_max += delta
+                if v_min > contact_v_min:
+                    v_min = contact_v_min
+                if v_max < contact_v_max:
+                    v_max = contact_v_max
+                print(f"[contact] Nudge +v hinge toward scene plane {scene_idx}: delta {delta:.3f}.")
+        elif side == "v_neg":
+            desired_edge = hit + hinge_snap_clearance
+            delta = desired_edge - v_min
+            if abs(delta) > 1e-6:
+                v_min += delta
+                v_max += delta
+                if v_min > contact_v_min:
+                    v_min = contact_v_min
+                if v_max < contact_v_max:
+                    v_max = contact_v_max
+                print(f"[contact] Nudge -v hinge toward scene plane {scene_idx}: delta {delta:.3f}.")
+
+    center_local = torch.tensor(
+        [(u_min + u_max) * 0.5, (v_min + v_max) * 0.5, 0.0],
+        device=device,
+        dtype=base_center.dtype,
+    )
+    half_ext = torch.tensor(
+        [
+            max((u_max - u_min) * 0.5, 0.02),
+            max((v_max - v_min) * 0.5, 0.02),
+            z_half,
+        ],
+        device=device,
+        dtype=base_half_sz.dtype,
+    )
+    centre = base_center + R_contact @ center_local
+    return R_contact, centre, half_ext
+
+
 
 def process_global_points(
     world_points: torch.Tensor,
@@ -2535,7 +2874,8 @@ def process_global_points(
     device: str = 'cuda',
     fps_ratio: float = 0.3,
     min_fps_points: int = 100,
-    use_plane_constraint: bool = True
+    use_plane_constraint: bool = True,
+    scene_primitives: Optional[Dict[str, List[torch.Tensor]]] = None,
 ) -> Dict[str, List[torch.Tensor]]:
     """
     Process global segments with compact 3D bounding box estimation.
@@ -2543,54 +2883,26 @@ def process_global_points(
     """
     S_items, R_items, T_items, pts_items = [], [], [], []
 
-    # for gid, frame_segs in global_segments.items():
     gid = 0
-    if True: 
-        pts_list, normal_list = [], []
-        # for fi, lid in frame_segs:
-        # seg = all_frame_segments[fi][lid]
-        world_points = world_points.to(device)
-        avg_normal = estimate_normals_knn(world_points, k=20).to(device)
-        avg_normal = avg_normal.mean(dim=0)
-        avg_normal = avg_normal / avg_normal.norm()  # normalize to unit length
+    if True:
+        R_bw, centre, half_sz, P_all, P, _, _ = _fit_plane_box_from_points(
+            world_points,
+            gid=gid,
+            device=device,
+            use_plane_constraint=use_plane_constraint,
+        )
+        planarity_ratio = float(P.shape[0]) / max(float(P_all.shape[0]), 1.0)
+        print(f"[{gid}] Using plane-constrained bbox (planarity: {planarity_ratio:.2f})")
 
+        R_bw, centre, half_sz = _extend_contact_box_to_scene_barriers(
+            contact_points=P_all,
+            base_R_bw=R_bw,
+            base_center=centre,
+            base_half_sz=half_sz,
+            scene_primitives=scene_primitives,
+            device=device,
+        )
 
-        assert world_points.dim() == 2 and world_points.shape[1] == 3, f"world_points must be (N,3), got {world_points.shape}"
-        assert avg_normal.dim() == 1 and avg_normal.shape[0] == 3,     f"avg_normal must be (3,), got {avg_normal.shape}"
-        pts_list.append(world_points); normal_list.append(avg_normal)
-
-        P_all = torch.cat(pts_list, 0)
-        assert P_all.dim() == 2 and P_all.shape[1] == 3, f"Concatenated points must be (N, 3), got {P_all.shape}"
-        n_avg = F.normalize(torch.stack(normal_list).mean(0), dim=0)
-
-        if use_plane_constraint:
-
-            n, c, inliers = robust_plane_ransac(P_all, n_avg)
-            planarity_ratio = (inliers.float().mean()).item()
-            print(f"[{gid}] Using plane-constrained bbox (planarity: {planarity_ratio:.2f})")
-            P = P_all[inliers] if inliers.sum() > 50 else P_all
-
-            # first try single rectangle
-            R_bw1, centre1, half_sz1, rect_ratio = fit_one_plane_box(P, n, c, gid)
-
-            if rect_ratio < 0.70 and P.shape[0] >= 300:
-                print(f"[{gid}] Rectangularity {rect_ratio:.2f} too low → splitting into sub-planes")
-                pieces = split_plane_clusters(P, n, c, gid, tau=0.70, max_splits=3, min_pts=150)
-                for R_bw, centre, half_sz in pieces:
-                    half_sz = half_sz.clamp(min=0.02)
-                    S_items.append(torch.log(half_sz))
-                    R_items.append(R_bw.t().contiguous())
-                    T_items.append(centre)
-                    pts_items.append(P_all.cpu())
-                    print(f"[{gid}] Sub-box dims: {(half_sz * 2).detach().cpu().numpy()}")
-                # continue  # go to next gid
-
-            # single box path
-            half_sz = half_sz1.clamp(min=0.02)
-            R_bw, centre = R_bw1, centre1
-
-
-        # clamp & store
         half_sz = half_sz.clamp(min=0.02)
         S_items.append(torch.log(half_sz))
         R_items.append(R_bw.t().contiguous())  # world→body
@@ -2857,7 +3169,8 @@ def interval_flow_segmentation_pipeline_with_vis(
         results_extra = process_global_points(
             torch.from_numpy(contact_points),
             min_frames=2,
-            device=device
+            device=device,
+            scene_primitives=results,
         )
 
     results = merge_primitives_dicts(results, results_extra)

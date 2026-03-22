@@ -2,14 +2,16 @@
 	<h1>CRISP: Contact-guided Real2Sim from Monocular Video with Planar Scene Primitives</h1>
 	<a href="https://arxiv.org/abs/2512.14696"><img src="https://img.shields.io/badge/arXiv-2512.14696-b31b1b" alt="arXiv"></a>
 	<a href="https://crisp-real2sim.github.io/CRISP-Real2Sim/"><img src="https://img.shields.io/badge/Project_Page-green" alt="Project Page"></a>
+	<a href="https://drive.google.com/drive/folders/1PX8Pqzqjlh5v0Z6xt-NjzTgpugk4igoN?usp=drive_link"><img src="https://img.shields.io/badge/Video_Dataset-blue" alt="Video Dataset"></a>
 </div>
 	
 ![teaser](https://raw.githubusercontent.com/Z1hanW/CRISP-Real2Sim/main/assets/crisp.png)
 
-(Code is in beta test.)
+We open source the code and video we used. See [Video Dataset](#video-dataset).
+
 ---
 
-## 1. Repository Setup
+### 1. Repository Setup
 
 ```bash
 git clone --recursive https://github.com/Z1hanW/CRISP-Real2Sim.git
@@ -35,7 +37,7 @@ conda activate my_crisp_env
 
 ---
 
-## 2. Download Assets and Data
+### 2. Download Assets and Data
 
 1. **SMPL / SMPL-X body models** (required for rendering and evaluation)
    - Register at [SMPL](https://smpl.is.tue.mpg.de/) and [SMPL-X](https://smpl-x.is.tue.mpg.de/).
@@ -70,7 +72,7 @@ gdown --folder "https://drive.google.com/drive/folders/1k712Oj9StmWXRzSeSMiHZc3L
 
 ---
 
-## 3. Run the Full Pipeline
+### 3. Run the Full Pipeline
 
 The wrapper and scripts expect your source sequences to live under either
 `*_videos` or `*_img` folders. Remove that suffix when you feed paths to the
@@ -110,7 +112,7 @@ results/output/scene/<SEQ_NAME>_gv_sgd_cvd_hr.npz
 results/output/scene/<SEQ_NAME>/gv/scene_mesh_sqs/scene_mesh_sqs.urdf
 ```
 
-### Validated Example
+#### Validated Example
 
 The current helper-based environment was validated by running one full video
 through the new environment and producing:
@@ -122,7 +124,7 @@ results/output/scene/wall-kicking-envtest-20260317/gv/scene_mesh_sqs/scene_mesh_
 
 ---
 
-## 4. Contact Hallucination (Optional)
+### 4. Contact Hallucination (Optional)
 
 This step uses a separate environment because its dependency stack conflicts
 with the main CRISP and MotionTracking environments.
@@ -163,7 +165,7 @@ Here too, `stairs` is just the default object name.
 
 ---
 
-## 5. Visualize Human–Scene Reconstructions
+### 5. Visualize Human–Scene Reconstructions
 
 Compile viser if needed:
 
@@ -191,7 +193,7 @@ Common flags (see script header for the full list):
 
 ---
 
-## 6. Train Your Agent
+### 6. Train Your Agent
 
 ```bash
 cd MotionTracking
@@ -205,7 +207,7 @@ your working directory is already `MotionTracking`.
 
 ---
 
-## 7. Visualize Your Agent
+### 7. Visualize Your Agent
 
 Agent visualization builds on the same `vis.sh` infrastructure:
 
@@ -217,6 +219,21 @@ python agents/vis_agent.py \
 ```
 
 Pass `--scene_name` or `--camera_pose_file` if your controller requires a custom scene or camera path.
+
+---
+
+## Video Dataset
+
+We release a curated and clipped video dataset here:
+[Video Dataset](https://drive.google.com/drive/folders/1PX8Pqzqjlh5v0Z6xt-NjzTgpugk4igoN?usp=drive_link).
+
+It includes both self-captured videos and internet videos. A substantial
+portion of these videos currently fail in CRISP because HMR is still not
+reliable under high-dynamics motion. We still decided to release them because
+we know that finding and cleaning suitable videos is a real bottleneck for
+such a real2sim pipeline.
+
+If you use these videos, please cite CRISP.
 
 ---
 

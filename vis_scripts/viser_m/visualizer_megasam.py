@@ -72,7 +72,9 @@ try:
     from scontact_utils import (
         analyze_contacts_5parts,
         extract_contact_points_from_single_frame,
+        hybrid_contact_selection,
         load_contact_points_for_parts,
+        select_frames_and_collect_contacts,
     )
     CONTACT_UTILS_AVAILABLE = True
     CONTACT_IMPORT_ERROR: Optional[Exception] = None
@@ -81,7 +83,9 @@ except Exception as contact_exc:  # pragma: no cover - best effort import guard
     CONTACT_IMPORT_ERROR = contact_exc
     analyze_contacts_5parts = None
     extract_contact_points_from_single_frame = None
+    hybrid_contact_selection = None
     load_contact_points_for_parts = None
+    select_frames_and_collect_contacts = None
 
 CAN_RUN_CONTACT_ANALYSIS = CONTACT_UTILS_AVAILABLE and analyze_contacts_5parts is not None
 CAN_EXTRACT_SINGLE_FRAME_CONTACTS = CONTACT_UTILS_AVAILABLE and extract_contact_points_from_single_frame is not None
@@ -1069,11 +1073,11 @@ def main(
             scale_values = np.resize(scale_values, cam_c2w_np.shape[0]).astype(np.float32)
 
     body_part_params = {
-        "leg":     {"contact_threshold": 0.3, "min_consecutive_frames": 5,  "weight": 1.0, "vel_threshold": 0.050, "min_lowvel_run": 5},
-        "hand":    {"contact_threshold": 0.55, "min_consecutive_frames": 5, "weight": 0.6, "vel_threshold": 0.008, "min_lowvel_run": 4},
-        "gluteus": {"contact_threshold": 0.01, "min_consecutive_frames": 20, "weight": 1.2, "vel_threshold": 0.028, "min_lowvel_run": 5},
-        "back":    {"contact_threshold": 0.02, "min_consecutive_frames": 60, "weight": 0.8, "vel_threshold": 0.010, "min_lowvel_run": 5},
-        "thigh":   {"contact_threshold": 0.01, "min_consecutive_frames": 5, "weight": 1.0, "vel_threshold": 0.028, "min_lowvel_run": 5},
+        "leg":     {"contact_threshold": 0.3, "min_consecutive_frames": 45, "weight": 1.0, "vel_threshold": 0.010, "min_lowvel_run": 5, "relax_last_N": 30, "relax_min_run_last": 5, "relax_vel_threshold_last": 0.025},
+        "hand":    {"contact_threshold": 0.55, "min_consecutive_frames": 15, "weight": 0.6, "vel_threshold": 0.008, "min_lowvel_run": 4, "relax_last_N": 30, "relax_min_run_last": 4},
+        "gluteus": {"contact_threshold": 0.01, "min_consecutive_frames": 90, "weight": 1.2, "vel_threshold": 0.014, "min_lowvel_run": 5, "relax_last_N": 30, "relax_min_run_last": 5},
+        "back":    {"contact_threshold": 0.02, "min_consecutive_frames": 60, "weight": 0.8, "vel_threshold": 0.010, "min_lowvel_run": 5, "relax_last_N": 30, "relax_min_run_last": 5},
+        "thigh":   {"contact_threshold": 0.01, "min_consecutive_frames": 90, "weight": 1.0, "vel_threshold": 0.014, "min_lowvel_run": 5, "relax_last_N": 30, "relax_min_run_last": 5},
     }
 
     contact_colors_rgb = [
@@ -1123,7 +1127,7 @@ def main(
             print(f"[contact] Contact utilities unavailable: {CONTACT_IMPORT_ERROR}")
         contact_points_by_part, contact_points_all = _empty_contact_buffers()
 
-    gui_show_contact = types.SimpleNamespace(value=True)
+    gui_show_contact = types.SimpleNamespace(value=bool(use_contact))
 
     if not any(arr.size for arr in contact_points_by_part):
         contact_points_by_part = []
@@ -1151,21 +1155,6 @@ def main(
             np.concatenate(non_empty, axis=0).astype(np.float32, copy=False)
             if non_empty else np.empty((0, 3), dtype=np.float32)
         )
-
-    for idx_part, (pts, rgb_color) in enumerate(zip(contact_points_by_part, contact_colors_rgb)):
-        if pts.size == 0:
-            continue
-        pts_visual = np.asarray(pts, dtype=np.float32)
-        color_arr = np.tile(np.array(rgb_color, dtype=np.uint8), (pts_visual.shape[0], 1))
-        handle = server.scene.add_point_cloud(
-            name=f"/frames/t0/bodypart_{idx_part}",
-            points=pts_visual,
-            colors=color_arr,
-            point_size=0.01,
-            point_shape="rounded",
-        )
-        handle.visible = gui_show_contact.value
-        contact_global_handles.append(handle)
 
     results = {'pred_cam': [world_cam_R, world_cam_T], # cam 
                 'body_pose': body_pose, # smpl 
@@ -1291,7 +1280,7 @@ def main(
 
     # Add GUI controls
     with server.gui.add_folder("Layers"):
-        gui_show_contact = server.gui.add_checkbox("Show Contact", True)
+        gui_show_contact = server.gui.add_checkbox("Show Contact", bool(use_contact))
         gui_show_sqs = server.gui.add_checkbox("SQs", False)
         gui_show_scene_raw = server.gui.add_checkbox("Scene mesh (raw)", True)
         gui_show_scene_coacd_contact = server.gui.add_checkbox("Scene mesh (contact-COACD)", True)
@@ -1824,13 +1813,21 @@ def main(
     #[depth, rotation, translation, K]
     print(single_image, 'singleimg')
     debug = False 
+    contact_part_ids = [
+        np.asarray(leg_ids_smpl, dtype=np.int64),
+        np.asarray(hand_ids_smpl, dtype=np.int64),
+        np.asarray(gluteus_ids_smpl, dtype=np.int64),
+        np.asarray(back_ids_smpl, dtype=np.int64),
+        np.asarray(thigh_ids_smpl, dtype=np.int64),
+    ]
+    scene_contact_points: Optional[np.ndarray] = None
     if USE_CONTACT and contact_pipeline_available: 
         if not transfer_data:
           
             contacted_masks, static_frames, static_segments, best_frames_global, counts_global, per_part = analyze_contacts_5parts(
                 interact_contact_path=interact_contact_path,
                 num_frames=num_frames,
-                part_ids_list=[leg_ids_smpl, hand_ids_smpl, gluteus_ids_smpl, back_ids_smpl, thigh_ids_smpl],
+                part_ids_list=contact_part_ids,
                 pred_contact_vert_list=[
                     pred_vert[:, leg_ids_smpl, :],
                     pred_vert[:, hand_ids_smpl, :],
@@ -1842,8 +1839,51 @@ def main(
                 total_verts=6890,
                 pred_vert_global=pred_vert,
                 min_static_duration=15,
+                enable_vertex_smoothing=True,
+                vertex_smooth_window=7,
+                enable_contact_smoothing=True,
+                contact_smooth_window=5,
+                velocity_outlier_threshold=2.5,
+                velocity_smooth_window=9,
                 debug_dir=str(SCENE_OUTPUT_DIR / tgt_name / 'contact_debug')
             )
+            if select_frames_and_collect_contacts is not None:
+                try:
+                    selected_frames, _, all_points = select_frames_and_collect_contacts(
+                        contacted_masks=contacted_masks,
+                        static_segments=static_segments,
+                        best_frames_global=best_frames_global,
+                        counts_global=counts_global,
+                        per_part=per_part,
+                        part_ids_list=contact_part_ids,
+                        pred_vert=pred_vert,
+                        policy="velocity",
+                        body_part_params=body_part_params,
+                    )
+                except Exception as exc:
+                    selected_frames = []
+                    all_points = None
+                    print(f"[contact] Contact point selection failed ({exc}).")
+                if all_points is not None and all_points.shape[0] > 0:
+                    scene_contact_points = np.asarray(all_points, dtype=np.float32)
+                    print(f"[contact] Selected frames: {selected_frames}")
+                    print(
+                        f"[contact] Using {scene_contact_points.shape[0]} selected contact points for scene grounding."
+                    )
+    if USE_CONTACT and scene_contact_points is not None and scene_contact_points.size > 0:
+        contact_points_visual = np.asarray(scene_contact_points, dtype=np.float32)
+        contact_handle = server.scene.add_point_cloud(
+            name="/frames/t0/point_cloud_filtered_contact",
+            points=contact_points_visual,
+            colors=np.tile(
+                np.array([0, 255, 0], dtype=np.uint8),
+                (contact_points_visual.shape[0], 1),
+            ),
+            point_size=0.028,
+            point_shape="rounded",
+        )
+        contact_handle.visible = gui_show_contact.value
+        contact_global_handles.append(contact_handle)
 
     if TTTTTTEST == False:
         interval = 7# 30#stttride=  (num_frames // 90) + 1
@@ -1851,13 +1891,10 @@ def main(
         if debug:
           num_frames = interval+1
 
-        if 'pkr'  or 'qitao'  in tgt_name: # 
-            interval = 1
-        if 'qitao'  in tgt_name: # 
-        # viser_m/visualizer_megasam.py
+        if 'pkr' in tgt_name:
+            interval = 7
+        elif 'qitao' in tgt_name:
             interval = 6
-
-        interval = 7
 
         print(interval, 'interval')
 
@@ -2290,11 +2327,6 @@ def main(
         all_frame_mode = False
 
 
-        try:
-          a = contact_points
-        except: 
-          contact_points = None 
-
         print(f"[segment] Running '{segment_mode}' segmentation pipeline")
         if segment_mode == "cluster_3d":
             results = cluster_pointcloud_pipeline(
@@ -2308,6 +2340,15 @@ def main(
                 roundness_threshold=0.6,
                 planar_threshold=0.12,
             )
+            if scene_contact_points is not None and len(scene_contact_points) > 0:
+                results = merge_primitives_dicts(
+                    results,
+                    process_global_points(
+                        torch.from_numpy(scene_contact_points),
+                        min_frames=2,
+                        device=device,
+                    ),
+                )
         else:
             results = interval_flow_segmentation_pipeline_with_vis(
                 mono_normals=mono_normals,
@@ -2319,7 +2360,7 @@ def main(
                 device=device,
                 save_debug=False,
                 debug_dir=debug_dir,
-                contact_points=None,
+                contact_points=scene_contact_points,
                 stat_cam=(static_camera or single_image),
                 detailed_planes=detailed_planes,
                 cluster_dump_dir=cluster_dump_dir,
