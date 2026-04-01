@@ -33,7 +33,7 @@ prep/data/
 
 ```bash
 mkdir -p data
-gdown --folder "https://drive.google.com/drive/folders/1k712Oj9StmWXRzSeSMiHZc3LtvsVk2Rw" -O data
+gdown --folder "https://drive.google.com/drive/folders/1xj28zTlCyCtOAZCw_JQxn6pyi5KmPt83" -O data
 ```
 
 `gdown` is installed in the `crisp` environment. Use `-O data` so Google Drive
