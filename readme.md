@@ -24,7 +24,7 @@ conda activate crisp
 ```
 
 
-Optional demo shortcut: [`run_demo.sh`](setups/run_demo.sh)
+Optional demo shortcut: [`run_demo.sh`](setups/run_demo.sh), one trick I found is to launch codex --yolo / claude code inside of this repo and ask it to set up environment, it can help with lots of conflicts among different machines. 
 
 ---
 
