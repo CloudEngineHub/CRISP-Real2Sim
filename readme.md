@@ -8,6 +8,9 @@
 	
 ![teaser](https://raw.githubusercontent.com/Z1hanW/CRISP-Real2Sim/main/assets/crisp.png)
 
+For any problem you encountered, feel free to raise an issue or email me (zihanwa3@cs.cmu.edu/lucas7eason@gmail.com). 
+
+
 ### [Video Dataset (some Parkours & stairs)](#video-dataset)
 
 Code pipeline, in one line: scripts `1-8` are `1)` video-to-images convention, `2)` human masks, `3)` improved scene reconstruction, `4)` camera postprocess, `5)` GVHMR, `6)` human-scene alignment and opitmization, `7)` planar fitting, `8)` post-scene alignment + bridge; `MotionTracking` then handles RL train/eval/viser.
@@ -53,15 +56,12 @@ data/
     └── seq_b.mp4
 ```
 
-```bash
-bash run_crisp_video.sh --demo
-```
-
 For your own data:
 
 ```bash
 bash run_crisp_video.sh /path/to/data/demo        # not /path/to/data/demo_videos
 ```
+
 
 Results will contain both `scene` and `post_scene`:
 
